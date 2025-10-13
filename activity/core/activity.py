@@ -138,7 +138,7 @@ class Activity:
                     if frame.name == "record":
                         points.append(frame)
 
-                    if frame.name == "sport":
+                    if frame.name == "session":
                         activity_type = frame.get_value("sport")
 
         # iterate all the points to find the available fields

@@ -24,7 +24,7 @@ import xlrd  # Dev requirement for parsing Excel spreadsheet
 
 FIELD_NUM_TIMESTAMP = 253
 
-XLS_HEADER_MAGIC = b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"
+XLS_HEADER_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 SYMBOL_NAME_SCRUBBER = re.compile(r"\W|^(?=\d)")
 

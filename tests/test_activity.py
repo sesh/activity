@@ -88,5 +88,15 @@ class ActivityTests(TestCase):
             ],
         )
 
-    def test_json_export(self):
-        a = Activity.load("tests/testfiles/cpt.fit")
+    def test_activity_type(self):
+        outdoor_run = Activity.load("tests/testfiles/cpt.fit")
+        self.assertEqual(outdoor_run.activity_type, "running")
+
+        indoor_ride = Activity.load("tests/testfiles/zwift-ride.fit")
+        self.assertEqual(indoor_ride.activity_type, "cycling")
+
+        indoor_walk = Activity.load("tests/testfiles/indoor-walk.fit")
+        self.assertEqual(indoor_walk.activity_type, "walking")
+
+        elliptical = Activity.load("tests/testfiles/elliptical.fit")
+        self.assertEqual(elliptical.activity_type, "fitness_equipment")
