@@ -1,2 +1,1 @@
-def example_function():
-    return 1 + 1
+from activity.core.activity import Activity
