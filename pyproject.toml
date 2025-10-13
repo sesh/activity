@@ -1,6 +1,26 @@
 [project]
-name = "placeholder"
+name = "activity"
 version = "0.1"
+description = "null"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Brenton Cleeland"}]
+license = "Apache-2.0"
+classifiers = []
+dependencies = [
+
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/sesh/activity"
+Changelog = "https://github.com/sesh/activity/releases"
+Issues = "https://github.com/sesh/activity/issues"
+CI = "https://github.com/sesh/activity/actions"
+
 
 [project.optional-dependencies]
 test = ["pytest"]
