@@ -126,3 +126,9 @@ class ActivityTests(TestCase):
 
         reloaded = Activity.load_json(json.loads(zwift_ride.as_json()))
         self.assertTrue(reloaded.virtual)
+
+        outdoor_run = Activity.load("tests/testfiles/cpt.fit")
+        self.assertFalse(outdoor_run.virtual)
+
+        reloaded = Activity.load_json(json.loads(outdoor_run.as_json()))
+        self.assertFalse(reloaded.virtual)
