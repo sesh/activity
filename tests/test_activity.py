@@ -44,6 +44,13 @@ class ActivityTests(TestCase):
 
         geojson_json = json.loads(geojson)
         self.assertEqual(geojson_json["geometry"]["type"], "LineString")
+    
+    def test_export_as_json(self):
+        zwift_ride = Activity.load("tests/testfiles/zwift-ride.fit")
+        j = zwift_ride.as_json()
+
+        reloaded = Activity.load_json(json.loads(j))
+        self.assertEqual(int(reloaded.distance), 6)
 
     def test_splits(self):
         a = Activity.load(
@@ -112,3 +119,10 @@ class ActivityTests(TestCase):
 
         garmin_cycling = Activity.load("tests/testfiles/garmin-cycling.fit")
         self.assertEqual(garmin_cycling.activity_type, "cycling")
+
+    def test_virtual_flag(self):
+        zwift_ride = Activity.load("tests/testfiles/zwift-ride.fit")
+        self.assertTrue(zwift_ride.virtual)
+
+        reloaded = Activity.load_json(json.loads(zwift_ride.as_json()))
+        self.assertTrue(reloaded.virtual)

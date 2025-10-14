@@ -53,6 +53,13 @@ JSON_EXPORTABLE_FIELDS = {
     "elevation_gain": None,
     "elevation_loss": None,
     "start_time": str,
+    "virtual": None,
+}
+
+# fields that must be loaded from the JSON document since they are not calculated
+JSON_LOADABLE_FIELDS = {
+    "virtual": None,
+    "activity_type": None
 }
 
 
@@ -70,6 +77,7 @@ class Activity:
 
     # a string representing activity type
     activity_type = ""
+    virtual = False
 
     # floats representing total elevation gain / loss in meters
     elevation_gain = 0
@@ -84,6 +92,7 @@ class Activity:
         distance=0,
         elapsed_time=0,
         activity_type="",
+        virtual=False,
         elevation_gain=0,
         elevation_loss=0,
     ):
@@ -91,6 +100,7 @@ class Activity:
         self.distance = distance
         self.elapsed_time = elapsed_time
         self.activity_type = activity_type
+        self.virtual = virtual
         self.elevation_gain = elevation_gain
         self.elevation_loss = elevation_loss
 
@@ -126,6 +136,7 @@ class Activity:
     def load_fit(cls, f, *, debug=False) -> Self:
         points = []
         activity_type = None
+        virtual = False
 
         with fitdecode.FitReader(
             f,
@@ -139,7 +150,12 @@ class Activity:
                         points.append(frame)
 
                     if frame.name == "session":
-                        activity_type = frame.get_value("sport")
+                        if frame.has_field("sport"):
+                            activity_type = frame.get_value("sport")
+                        
+                        if frame.has_field("sub_sport"):
+                            if "virtual" in frame.get_value("sub_sport"):
+                                virtual = True
 
         # iterate all the points to find the available fields
         available_fields = []
@@ -176,7 +192,7 @@ class Activity:
             if k in streams:
                 streams[k] = [fn(x) if x else x for x in streams[k]]
 
-        return Activity(streams, activity_type=activity_type)
+        return Activity(streams, activity_type=activity_type, virtual=virtual)
 
     @classmethod
     def load_gpx(cls, f, *, debug=False) -> Self:
@@ -245,18 +261,28 @@ class Activity:
     @classmethod
     def load_json(cls, j, *, debug=False) -> Self:
         streams = {}
+        extra_args = {}
+
         for k, v in j.items():
             if k.endswith("_stream"):
                 stream_name = k.replace("_stream", "")
                 if stream_name in STREAM_NAMES:
                     streams[stream_name] = v
 
+            if k in JSON_LOADABLE_FIELDS:
+                fn = JSON_LOADABLE_FIELDS[k]
+                if fn:
+                    extra_args[k] = fn(v)
+                else:
+                    extra_args[k] = v
+
+
         # normalise the values in the streams
         for k, fn in NORMALISED_VALUES.items():
             if k in streams:
                 streams[k] = [fn(x) if x else x for x in streams[k]]
 
-        return Activity(streams)
+        return Activity(streams, **extra_args)
 
     def as_json(self) -> str:
         result = {}
