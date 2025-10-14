@@ -92,11 +92,23 @@ class ActivityTests(TestCase):
         outdoor_run = Activity.load("tests/testfiles/cpt.fit")
         self.assertEqual(outdoor_run.activity_type, "running")
 
+        wod_run = Activity.load("tests/testfiles/applewatch-workoutdoors-run.fit")
+        self.assertEqual(wod_run.activity_type, "running")
+
         indoor_ride = Activity.load("tests/testfiles/zwift-ride.fit")
         self.assertEqual(indoor_ride.activity_type, "cycling")
 
-        indoor_walk = Activity.load("tests/testfiles/indoor-walk.fit")
+        indoor_walk = Activity.load("tests/testfiles/applewatch-indoor-walk.fit")
         self.assertEqual(indoor_walk.activity_type, "walking")
 
-        elliptical = Activity.load("tests/testfiles/elliptical.fit")
+        elliptical = Activity.load("tests/testfiles/applewatch-elliptical.fit")
         self.assertEqual(elliptical.activity_type, "fitness_equipment")
+
+        hike = Activity.load("tests/testfiles/applewatch-hike.fit")
+        self.assertEqual(hike.activity_type, "hiking")
+
+        garmin_run = Activity.load("tests/testfiles/garmin-run.fit")
+        self.assertEqual(garmin_run.activity_type, "running")
+
+        garmin_cycling = Activity.load("tests/testfiles/garmin-cycling.fit")
+        self.assertEqual(garmin_cycling.activity_type, "cycling")
