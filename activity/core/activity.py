@@ -342,6 +342,10 @@ class Activity:
 
         latitudes = [x for x in self.values_streams["latitude"] if x]
         longitudes = [x for x in self.values_streams["longitude"] if x]
+
+        if not latitudes or not longitudes:
+            return None
+
         min_lat, max_lat = min(latitudes), max(latitudes)
         min_lon, max_lon = min(longitudes), max(longitudes)
 
