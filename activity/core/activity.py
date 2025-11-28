@@ -151,7 +151,7 @@ class Activity:
                             activity_type = frame.get_value("sport")
 
                         if frame.has_field("sub_sport"):
-                            if "virtual" in frame.get_value("sub_sport"):
+                            if "virtual" in str(frame.get_value("sub_sport")):
                                 virtual = True
 
         # iterate all the points to find the available fields
