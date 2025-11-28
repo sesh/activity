@@ -364,7 +364,7 @@ class Activity:
                     distance += haversine((lat, lon), prev_pt)
                 prev_pt = (lat, lon)
 
-        if distance == 0 and "distance" in self.values_streams:
+        if distance == 0 and "distance" in self.values_streams and len(self.values_streams["distance"]) > 0:
             # use the pre-calculated distance stream if we didn't calculate one
             return self.values_streams["distance"][-1]
 
