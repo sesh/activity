@@ -57,10 +57,7 @@ JSON_EXPORTABLE_FIELDS = {
 }
 
 # fields that must be loaded from the JSON document since they are not calculated
-JSON_LOADABLE_FIELDS = {
-    "virtual": None,
-    "activity_type": None
-}
+JSON_LOADABLE_FIELDS = {"virtual": None, "activity_type": None}
 
 
 class Activity:
@@ -104,7 +101,7 @@ class Activity:
         self.elevation_gain = elevation_gain
         self.elevation_loss = elevation_loss
 
-        if "time" in self.values_streams:
+        if "time" in self.values_streams and self.values_streams["time"]:
             self.start_time = self.values_streams["time"][0]
 
         # The idea here is that any missing values that can be derived from the GPX file should be calculated
@@ -152,7 +149,7 @@ class Activity:
                     if frame.name == "session":
                         if frame.has_field("sport"):
                             activity_type = frame.get_value("sport")
-                        
+
                         if frame.has_field("sub_sport"):
                             if "virtual" in frame.get_value("sub_sport"):
                                 virtual = True
@@ -164,13 +161,17 @@ class Activity:
                 if field.name not in available_fields:
                     available_fields.append(field.name)
 
+        # set start_offset to the first point that includes position data
         start_offset = 0
         if "position_lat" in available_fields:
-            # set start_offset to the first point that includes position data
             for p in points:
                 if p.get_value("position_lat", fallback=None):
                     break
                 start_offset += 1
+
+        # it's possible that the _lat field exists but is always empty
+        if start_offset == len(points):
+            start_offset = 0
 
         streams = {}
         for k, normalised in NORMALISED_STREAMS.items():
@@ -276,7 +277,6 @@ class Activity:
                 else:
                     extra_args[k] = v
 
-
         # normalise the values in the streams
         for k, fn in NORMALISED_VALUES.items():
             if k in streams:
@@ -353,6 +353,7 @@ class Activity:
 
     def calc_distance(self):
         distance = 0
+
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
             prev_pt = None
             for lat, lon in zip(
@@ -362,10 +363,15 @@ class Activity:
                 if prev_pt and prev_pt[0] and prev_pt[1] and lat and lon:
                     distance += haversine((lat, lon), prev_pt)
                 prev_pt = (lat, lon)
+
+        if distance == 0 and "distance" in self.values_streams:
+            # use the pre-calculated distance stream if we didn't calculate one
+            return self.values_streams["distance"][-1]
+
         return distance
 
     def calc_distance_values(self):
-        values = [0]
+        values = []
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
             positions = [
                 x
@@ -380,7 +386,7 @@ class Activity:
         return values
 
     def calc_elapsed_time(self):
-        if "time" in self.values_streams:
+        if "time" in self.values_streams and self.values_streams["time"]:
             return (
                 self.values_streams["time"][-1] - self.values_streams["time"][0]
             ).total_seconds()

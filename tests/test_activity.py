@@ -2,6 +2,7 @@ import json
 from unittest import TestCase
 from activity import Activity
 from activity.utils import format_mins_seconds
+from pathlib import Path
 
 
 class ActivityTests(TestCase):
@@ -44,7 +45,7 @@ class ActivityTests(TestCase):
 
         geojson_json = json.loads(geojson)
         self.assertEqual(geojson_json["geometry"]["type"], "LineString")
-    
+
     def test_export_as_json(self):
         zwift_ride = Activity.load("tests/testfiles/zwift-ride.fit")
         j = zwift_ride.as_json()
@@ -132,3 +133,15 @@ class ActivityTests(TestCase):
 
         reloaded = Activity.load_json(json.loads(outdoor_run.as_json()))
         self.assertFalse(reloaded.virtual)
+
+    def test_auuki_file(self):
+        auuki_ride = Activity.load("tests/testfiles/auuki.fit")
+        self.assertEqual(auuki_ride.calc_elapsed_time(), 2043.0)
+        self.assertEqual(auuki_ride.calc_distance(), 17093.1)
+
+
+class BulkFileLoadingTestCase(TestCase):
+
+    def test_just_load_all_files_without_exception(self):
+        for fn in Path("tests/testfiles").glob("*"):
+            a = Activity.load(str(fn))
