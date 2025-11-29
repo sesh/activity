@@ -420,6 +420,11 @@ class Activity:
             return 0
         return self.elapsed_time / self.distance
 
+    def calc_moving_pace(self):
+        if not self.distance or not self.elapsed_time:
+            return 0
+        return self.calc_moving_time() / self.distance
+
     def calc_moving_time(self, threshold_m=0.79):
         if not all(
             [x in self.values_streams for x in ["longitude", "latitude", "time"]]
