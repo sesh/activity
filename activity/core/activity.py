@@ -441,7 +441,8 @@ class Activity:
                 if dist_m < threshold_m:
                     stationary_seconds += (point[2] - prev[2]).total_seconds()
 
-            prev = point
+            if point[0] and point[1]:
+                prev = point
 
         return self.calc_elapsed_time() - stationary_seconds
 
