@@ -117,7 +117,7 @@ class Activity:
         if not self.elevation_loss:
             self.elevation_loss = self.calc_elevation_loss()
 
-        # these values are always calculate
+        # these values are always calculated
         self.bounding_box = self.calc_bounding_box()
 
     @classmethod
@@ -434,7 +434,7 @@ class Activity:
             self.values_streams["longitude"],
             self.values_streams["time"],
         ):
-            if prev:
+            if prev and point[0] and point[1]:
                 dist_km = haversine(prev, point)
                 dist_m = dist_km * 1000
 
