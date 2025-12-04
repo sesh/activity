@@ -364,7 +364,11 @@ class Activity:
                     distance += haversine((lat, lon), prev_pt)
                 prev_pt = (lat, lon)
 
-        if distance == 0 and "distance" in self.values_streams and len(self.values_streams["distance"]) > 0:
+        if (
+            distance == 0
+            and "distance" in self.values_streams
+            and len(self.values_streams["distance"]) > 0
+        ):
             # use the pre-calculated distance stream if we didn't calculate one
             return self.values_streams["distance"][-1]
 
@@ -481,6 +485,25 @@ class Activity:
             prev = (lat, lon)
 
         return splits
+
+    def calc_uphill_downhill(self, threshold=0.1):
+        a = self.as_activity()
+        elevations = [m for m in a.values_streams["elevation"] if m]
+
+        if not elevations:
+            return 0, 0
+
+        uphill, downhill = 0.0, 0.0
+
+        for prev, cur in zip(elevations, elevations[1:]):
+            d = cur - prev
+            if abs(d) > threshold:
+                if d > 0:
+                    uphill += d
+                else:
+                    downhill += d
+
+        return int(uphill), int(downhill)
 
     """
     Utilities functions
