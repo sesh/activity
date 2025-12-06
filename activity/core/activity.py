@@ -41,10 +41,23 @@ NORMALISED_STREAMS = {
 NORMALISED_VALUES = {
     "longitude": lambda x: float(x),
     "latitude": lambda x: float(x),
-    "time": lambda x: datetime.fromisoformat(x),
     "elevation": lambda x: float(x) if x else x,
+    "time": lambda x: datetime.fromisoformat(x),
+    "timestamp": lambda x: datetime.fromisoformat(x),
 }
 
+LAP_FIELDS = [
+    "timestamp",
+    "event",
+    "event_type",
+    "lap_trigger",
+    "start_time",
+    "total_elapsed_time",
+    "total_timer_time",
+    "sport",
+    "sub_sport",
+    "wkt_step_index",
+]
 
 JSON_EXPORTABLE_FIELDS = {
     "distance": None,
@@ -54,6 +67,7 @@ JSON_EXPORTABLE_FIELDS = {
     "elevation_loss": None,
     "start_time": str,
     "virtual": None,
+    "laps": None,
 }
 
 # fields that must be loaded from the JSON document since they are not calculated
@@ -81,11 +95,13 @@ class Activity:
     elevation_loss = 0
 
     bounding_box = []
+    laps = []
 
     def __init__(
         self,
         values_streams,
         *,
+        laps=[],
         distance=0,
         elapsed_time=0,
         activity_type="",
@@ -94,6 +110,7 @@ class Activity:
         elevation_loss=0,
     ):
         self.values_streams = values_streams
+        self.laps = laps
         self.distance = distance
         self.elapsed_time = elapsed_time
         self.activity_type = activity_type
@@ -132,6 +149,7 @@ class Activity:
     @classmethod
     def load_fit(cls, f, *, debug=False) -> Self:
         points = []
+        laps = []
         activity_type = None
         virtual = False
 
@@ -145,14 +163,15 @@ class Activity:
                     # filter all the way down to the "record" objects in the file
                     if frame.name == "record":
                         points.append(frame)
-
-                    if frame.name == "session":
+                    elif frame.name == "session":
                         if frame.has_field("sport"):
                             activity_type = frame.get_value("sport")
 
                         if frame.has_field("sub_sport"):
                             if "virtual" in str(frame.get_value("sub_sport")):
                                 virtual = True
+                    elif frame.name == "lap":
+                        laps.append(frame)
 
         # iterate all the points to find the available fields
         available_fields = []
@@ -193,7 +212,21 @@ class Activity:
             if k in streams:
                 streams[k] = [fn(x) if x else x for x in streams[k]]
 
-        return Activity(streams, activity_type=activity_type, virtual=virtual)
+        # process laps
+        # TODO: WIP, we are only going to grab the values that cannot be calculated
+        activity_laps = []
+        for lap in laps:
+            lap_values = {}
+            for field in lap.fields:
+                if field.name in LAP_FIELDS:
+                    val = lap.get_value(field.name)
+                    if val:
+                        lap_values[field.name] = val
+            activity_laps.append(lap_values)
+
+        return Activity(
+            streams, laps=activity_laps, activity_type=activity_type, virtual=virtual
+        )
 
     @classmethod
     def load_gpx(cls, f, *, debug=False) -> Self:
@@ -284,7 +317,7 @@ class Activity:
 
         return Activity(streams, **extra_args)
 
-    def as_json(self) -> str:
+    def as_json(self, include_streams=True, indent=None) -> str:
         result = {}
 
         for k, fn in JSON_EXPORTABLE_FIELDS.items():
@@ -293,12 +326,13 @@ class Activity:
             else:
                 result[k] = fn(getattr(self, k))
 
-        for k in STREAM_NAMES:
-            result[f"{k}_stream"] = (
-                self.values_streams[k] if k in self.values_streams else []
-            )
+        if include_streams:
+            for k in STREAM_NAMES:
+                result[f"{k}_stream"] = (
+                    self.values_streams[k] if k in self.values_streams else []
+                )
 
-        return json.dumps(result, default=str)
+        return json.dumps(result, default=str, indent=indent)
 
     def as_geojson(self):
         """
@@ -364,7 +398,11 @@ class Activity:
                     distance += haversine((lat, lon), prev_pt)
                 prev_pt = (lat, lon)
 
-        if distance == 0 and "distance" in self.values_streams and len(self.values_streams["distance"]) > 0:
+        if (
+            distance == 0
+            and "distance" in self.values_streams
+            and len(self.values_streams["distance"]) > 0
+        ):
             # use the pre-calculated distance stream if we didn't calculate one
             return self.values_streams["distance"][-1]
 
