@@ -62,9 +62,7 @@ MESSAGE_NUM_DECLARATIONS = ("file_id", "developer_data_id", "field_description",
 FIELD_NUM_DECLARATIONS = ("hr.event_timestamp", "hr.event_timestamp_12")
 
 SPECIAL_FIELD_DECLARATIONS = (
-    "FIELD_TYPE_TIMESTAMP = Field(name='timestamp', type=FIELD_TYPES['date_time'], def_num="
-    + str(FIELD_NUM_TIMESTAMP)
-    + ", units='s')"
+    "FIELD_TYPE_TIMESTAMP = Field(name='timestamp', type=FIELD_TYPES['date_time'], def_num=" + str(FIELD_NUM_TIMESTAMP) + ", units='s')"
 )
 
 IGNORE_TYPE_VALUES = (
@@ -136,9 +134,7 @@ class TypeInfo(namedtuple("TypeInfo", ("name", "base_type", "enum", "comment")))
         for value in self.enum:
             if value.name == value_name:
                 return value
-        raise AssertionError(
-            "Invalid value name %s in type %s" % (value_name, self.name)
-        )
+        raise AssertionError("Invalid value name %s in type %s" % (value_name, self.name))
 
     def __str__(self):
         s = "FieldType(%s\n" % render_comment(self.comment)
@@ -200,21 +196,15 @@ class MessageList(namedtuple("MessageList", ("messages"))):
             if field.name == field_name:
                 return mesg, field
 
-        raise ValueError(
-            'field "%s" not found in message "%s"' % (field_name, mesg_name)
-        )
+        raise ValueError('field "%s" not found in message "%s"' % (field_name, mesg_name))
 
 
-class MessageInfo(
-    namedtuple("MessageInfo", ("name", "num", "group_name", "fields", "comment"))
-):
+class MessageInfo(namedtuple("MessageInfo", ("name", "num", "group_name", "fields", "comment"))):
     def get(self, field_name):
         for field in self.fields:
             if field.name == field_name:
                 return field
-        raise AssertionError(
-            "Invalid field name %s in message %s" % (field_name, self.name)
-        )
+        raise AssertionError("Invalid field name %s in message %s" % (field_name, self.name))
 
     def __str__(self):
         s = "MessageType(%s\n" % render_comment(self.comment)
@@ -326,11 +316,7 @@ class SubFieldInfo(
         if self.units:
             s += "    units=%s,\n" % repr(self.units)
         s += "    ref_fields=(\n"
-        for (
-            ref_field
-        ) in (
-            self.ref_fields
-        ):  # sorted(self.ref_fields, key=lambda rf: (rf.name, rf.value)):
+        for ref_field in self.ref_fields:  # sorted(self.ref_fields, key=lambda rf: (rf.name, rf.value)):
             s += "        %s,\n" % indent(ref_field, 2)
         s += "    ),\n"
         if self.components:
@@ -343,9 +329,7 @@ class SubFieldInfo(
         return s
 
 
-class ReferenceFieldInfo(
-    namedtuple("ReferenceFieldInfo", ("name", "value", "num", "raw_value"))
-):
+class ReferenceFieldInfo(namedtuple("ReferenceFieldInfo", ("name", "value", "num", "raw_value"))):
     def __str__(self):
         s = "ReferenceField(\n"
         s += "    name='%s',\n" % self.name
@@ -381,10 +365,7 @@ def parse_csv_fields(data, num_expected):
     if data is None or data == "":
         return [None] * num_expected
     elif isinstance(data, str):
-        ret = [
-            (int(x.strip()) if x.strip().isdigit() else x.strip())
-            for x in data.strip().split(",")
-        ]
+        ret = [(int(x.strip()) if x.strip().isdigit() else x.strip()) for x in data.strip().split(",")]
     else:
         ret = [data]
 
@@ -481,9 +462,7 @@ def parse_messages(messages_rows, type_list):
 
     group_name = ""
     for row in messages_rows:
-        if (row[3] is not None) and all(
-            r == b"" for n, r in enumerate(row[:14]) if n != 3
-        ):
+        if (row[3] is not None) and all(r == b"" for n, r in enumerate(row[:14]) if n != 3):
             # Only row 3 means it's a group name
             group_name = row[3].decode().title()
         elif row[0] is not None and row[0] != b"":
@@ -501,9 +480,7 @@ def parse_messages(messages_rows, type_list):
             # Get components if they exist
             components = []
             component_names = parse_csv_fields(row[5].decode(), 0)
-            if component_names and (
-                len(component_names) != 1 or component_names[0] != ""
-            ):
+            if component_names and (len(component_names) != 1 or component_names[0] != ""):
                 num_components = len(component_names)
                 components = [
                     ComponentFieldInfo(
@@ -519,14 +496,10 @@ def parse_messages(messages_rows, type_list):
                     for cmp_name, cmp_scale, cmp_offset, cmp_units, cmp_bits, cmp_accumulate in zip(
                         component_names,  # name
                         parse_csv_fields(maybe_decode(row[6]), num_components),  # scale
-                        parse_csv_fields(
-                            maybe_decode(row[7]), num_components
-                        ),  # offset
+                        parse_csv_fields(maybe_decode(row[7]), num_components),  # offset
                         parse_csv_fields(maybe_decode(row[8]), num_components),  # units
                         parse_csv_fields(maybe_decode(row[9]), num_components),  # bits
-                        parse_csv_fields(
-                            maybe_decode(row[10]), num_components
-                        ),  # accumulate
+                        parse_csv_fields(maybe_decode(row[10]), num_components),  # accumulate
                     )
                 ]
 
@@ -591,9 +564,7 @@ def parse_messages(messages_rows, type_list):
                         num=None,
                         raw_value=None,
                     )
-                    for ref_field_name, ref_field_value in zip(
-                        ref_field_names, parse_csv_fields(row[12].decode(), 0)
-                    )
+                    for ref_field_name, ref_field_value in zip(ref_field_names, parse_csv_fields(row[12].decode(), 0))
                 )
 
                 assert len(subfield.ref_fields) == len(ref_field_names)
@@ -609,21 +580,15 @@ def parse_messages(messages_rows, type_list):
                     sub_field.ref_fields[n] = ref_field_info._replace(
                         num=ref_field.num,
                         # Get the type of the reference field, then get its numeric value
-                        raw_value=type_list.get(ref_field.type)
-                        .get(ref_field_info.value)
-                        .value,
+                        raw_value=type_list.get(ref_field.type).get(ref_field_info.value).value,
                     )
                 bit_offset = 0
                 for n, component in enumerate(sub_field.components[:]):
-                    sub_field.components[n] = component._replace(
-                        num=message.get(component.name).num, bit_offset=bit_offset
-                    )
+                    sub_field.components[n] = component._replace(num=message.get(component.name).num, bit_offset=bit_offset)
                     bit_offset += component.bits
             bit_offset = 0
             for n, component in enumerate(field.components[:]):
-                field.components[n] = component._replace(
-                    num=message.get(component.name).num, bit_offset=bit_offset
-                )
+                field.components[n] = component._replace(num=message.get(component.name).num, bit_offset=bit_offset)
                 bit_offset += component.bits
 
     return message_list
@@ -651,9 +616,7 @@ def get_xls_and_version_from_zip_or_xlsx(path):
     else:
         # new structure?
         for name in archive.namelist():
-            rem = re.fullmatch(
-                r"^FitSDKRelease_(\d+(?:\.\d+)+)[/\\]Profile.xlsx?$", name, re.I
-            )
+            rem = re.fullmatch(r"^FitSDKRelease_(\d+(?:\.\d+)+)[/\\]Profile.xlsx?$", name, re.I)
             if rem:
                 profile_xls = archive.open(name)
                 profile_version = rem.group(1)
@@ -665,9 +628,7 @@ def get_xls_and_version_from_zip_or_xlsx(path):
     # read version from a C header file (old structure)
     if profile_version is None:
         content = archive.open("c/fit.h").read().decode()
-        rem = re.search(
-            r"\s+Profile\s+Version\s*\=\s*(\d+(?:\.\d+)+)[^\d]*", content, re.I
-        )
+        rem = re.search(r"\s+Profile\s+Version\s*\=\s*(\d+(?:\.\d+)+)[^\d]*", content, re.I)
         if not rem:
             print("SDK version number not found in", path)
             sys.exit(1)
@@ -682,19 +643,12 @@ def get_xls_and_version_from_zip_or_xlsx(path):
 
 def main(input_xls_or_zip, output_py_path=None):
     if output_py_path and os.path.exists(output_py_path):
-        if (
-            not open(output_py_path, "rb")
-            .read()
-            .strip()
-            .startswith(PROFILE_HEADER_FIRST_PART.encode())
-        ):
+        if not open(output_py_path, "rb").read().strip().startswith(PROFILE_HEADER_FIRST_PART.encode()):
             print("Python file does not begin with appropriate header.")
             sys.exit(1)
 
     if zipfile.is_zipfile(input_xls_or_zip):
-        xls_file, profile_version = get_xls_and_version_from_zip_or_xlsx(
-            input_xls_or_zip
-        )
+        xls_file, profile_version = get_xls_and_version_from_zip_or_xlsx(input_xls_or_zip)
     elif open(input_xls_or_zip, "rb").read().startswith(XLS_HEADER_MAGIC):
         xls_file, profile_version = input_xls_or_zip, None
     else:
@@ -718,9 +672,7 @@ def main(input_xls_or_zip, output_py_path=None):
             )
         )
 
-    field_num_declarations = [
-        "FIELD_NUM_TIMESTAMP = " + str(FIELD_NUM_TIMESTAMP) + '  # field "timestamp"'
-    ]
+    field_num_declarations = ["FIELD_NUM_TIMESTAMP = " + str(FIELD_NUM_TIMESTAMP) + '  # field "timestamp"']
     for field_fqn in FIELD_NUM_DECLARATIONS:
         mesg_name, field_name = field_fqn.split(".", maxsplit=1)
         mesg_info, field_info = message_list.get_field_by_name(mesg_name, field_name)
@@ -741,11 +693,7 @@ def main(input_xls_or_zip, output_py_path=None):
                 header(
                     "EXPORTED PROFILE FROM %s ON %s"
                     % (
-                        (
-                            ("SDK VERSION %s" % profile_version)
-                            if profile_version
-                            else "SPREADSHEET"
-                        ),
+                        (("SDK VERSION %s" % profile_version) if profile_version else "SPREADSHEET"),
                         datetime.datetime.now().strftime("%Y-%m-%d"),
                     )
                 ),
@@ -770,29 +718,21 @@ def main(input_xls_or_zip, output_py_path=None):
     if field_num_declarations:
         output += "\n\n" + "\n".join(field_num_declarations) + "\n"
 
-    output += "\n\n" + "\n".join(
-        [str(type_list), "\n", SPECIAL_FIELD_DECLARATIONS, "\n", str(message_list), ""]
-    )
+    output += "\n\n" + "\n".join([str(type_list), "\n", SPECIAL_FIELD_DECLARATIONS, "\n", str(message_list), ""])
 
     # TODO: Apply an additional layer of monkey patching to match reference/component
     # fields to actual field objects? Would clean up accesses to these
 
     if output_py_path:
         open(output_py_path, "wb").write(output.encode())
-        print(
-            "Profile version %s written to %s"
-            % (profile_version if profile_version else "<unknown>", output_py_path)
-        )
+        print("Profile version %s written to %s" % (profile_version if profile_version else "<unknown>", output_py_path))
     else:
         print(output.strip())
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(
-            "Usage: %s <FitSDK.zip | Profile.xls> [profile.py]"
-            % os.path.basename(__file__)
-        )
+        print("Usage: %s <FitSDK.zip | Profile.xls> [profile.py]" % os.path.basename(__file__))
         sys.exit(0)
 
     xls = sys.argv[1]

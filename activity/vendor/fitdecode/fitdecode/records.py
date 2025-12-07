@@ -52,9 +52,7 @@ class FitHeader:
         "chunk",
     )
 
-    def __init__(
-        self, header_size, proto_ver, profile_ver, body_size, crc, crc_matched, chunk
-    ):
+    def __init__(self, header_size, proto_ver, profile_ver, body_size, crc, crc_matched, chunk):
         self.header_size = header_size
         self.proto_ver = proto_ver
         self.profile_ver = profile_ver
@@ -145,9 +143,7 @@ class FitDataMessage:
         "chunk",
     )
 
-    def __init__(
-        self, is_developer_data, local_mesg_num, time_offset, def_mesg, fields, chunk
-    ):
+    def __init__(self, is_developer_data, local_mesg_num, time_offset, def_mesg, fields, chunk):
         #: Is this a "developer" message?
         self.is_developer_data = is_developer_data
 
@@ -224,10 +220,7 @@ class FitDataMessage:
                 if current_idx == idx:
                     return field
 
-        raise KeyError(
-            f'field "{field_name_or_num}" (idx #{idx}) not found in '
-            f'message "{self.name}"'
-        )
+        raise KeyError(f'field "{field_name_or_num}" (idx #{idx}) not found in ' f'message "{self.name}"')
 
     def get_fields(self, field_name_or_num):
         """
@@ -324,10 +317,7 @@ class FitDataMessage:
 
         if field_data is None:
             if fallback is _UNSET:
-                raise KeyError(
-                    f'field "{field_name_or_num}" (idx #{idx}) not found in '
-                    f'message "{self.name}"'
-                )
+                raise KeyError(f'field "{field_name_or_num}" (idx #{idx}) not found in ' f'message "{self.name}"')
             return fallback
 
         # check FIT type if needed
@@ -356,9 +346,7 @@ class FitDataMessage:
 
         return value
 
-    def get_values(
-        self, field_name_or_num, *, raw_value=False, fit_type=None, py_type=_UNSET
-    ):
+    def get_values(self, field_name_or_num, *, raw_value=False, fit_type=None, py_type=_UNSET):
         """
         Like `get_value` but **yield** every value of all the fields that match
         *field_name_or_num* - i.e. generator.

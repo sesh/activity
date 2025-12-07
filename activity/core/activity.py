@@ -195,15 +195,11 @@ class Activity:
         streams = {}
         for k, normalised in NORMALISED_STREAMS.items():
             if k in available_fields:
-                streams[normalised] = [
-                    p.get_value(k, fallback=None) for p in points[start_offset:]
-                ]
+                streams[normalised] = [p.get_value(k, fallback=None) for p in points[start_offset:]]
 
                 # convert from "semicircle" to "decimal"
                 if k in ["position_lat", "position_long"]:
-                    streams[normalised] = [
-                        v * (180 / 2**31) if v else v for v in streams[normalised]
-                    ]
+                    streams[normalised] = [v * (180 / 2**31) if v else v for v in streams[normalised]]
 
         for k, fn in NORMALISED_VALUES.items():
             if k == "time":
@@ -224,9 +220,7 @@ class Activity:
                         lap_values[field.name] = val
             activity_laps.append(lap_values)
 
-        return Activity(
-            streams, laps=activity_laps, activity_type=activity_type, virtual=virtual
-        )
+        return Activity(streams, laps=activity_laps, activity_type=activity_type, virtual=virtual)
 
     @classmethod
     def load_gpx(cls, f, *, debug=False) -> Self:
@@ -262,9 +256,7 @@ class Activity:
                 and k in points[0]["extensions"]["TrackPointExtension"].keys()
             ):
                 try:
-                    streams[normalised] = [
-                        p["extensions"]["TrackPointExtension"].get(k) for p in points
-                    ]
+                    streams[normalised] = [p["extensions"]["TrackPointExtension"].get(k) for p in points]
                 except KeyError:
                     print(f"[WARNING]: point missing extensions ({k})")
 
@@ -277,16 +269,10 @@ class Activity:
         if True:
             all_keys = list(points[0].keys())
             if "extensions" in points[0]:
-                all_keys.extend(
-                    list(points[0]["extensions"]["TrackPointExtension"].keys())
-                )
+                all_keys.extend(list(points[0]["extensions"]["TrackPointExtension"].keys()))
 
             ignored_keys = ["extensions"]  # keys that we won't complain about
-            missing_keys = [
-                x
-                for x in all_keys
-                if x not in NORMALISED_STREAMS.keys() and x not in ignored_keys
-            ]
+            missing_keys = [x for x in all_keys if x not in NORMALISED_STREAMS.keys() and x not in ignored_keys]
             if missing_keys and debug:
                 print("[DEBUG] Keys in file were not processed: ", missing_keys)
 
@@ -328,9 +314,7 @@ class Activity:
 
         if include_streams:
             for k in STREAM_NAMES:
-                result[f"{k}_stream"] = (
-                    self.values_streams[k] if k in self.values_streams else []
-                )
+                result[f"{k}_stream"] = self.values_streams[k] if k in self.values_streams else []
 
         return json.dumps(result, default=str, indent=indent)
 
@@ -368,9 +352,12 @@ class Activity:
     """
     calc_* functions should check that they have the streams needed for the calculations first, and return
     the defined default value if there is insufficient data.
+
+    All calc_* functions should take a start_index and end_index, if they are set, then the value should be 
+    calculated for that range only.
     """
 
-    def calc_bounding_box(self):
+    def calc_bounding_box(self, start_index=None, end_index=None):
         if not all([x in self.values_streams for x in ["latitude", "longitude"]]):
             return []
 
@@ -380,103 +367,113 @@ class Activity:
         if not latitudes or not longitudes:
             return None
 
+        if start_index and end_index:
+            latitudes = latitudes[start_index:end_index]
+            longitudes = longitudes[start_index:end_index]
+
         min_lat, max_lat = min(latitudes), max(latitudes)
         min_lon, max_lon = min(longitudes), max(longitudes)
 
         return [[min_lon, min_lat], [max_lon, max_lat]]
 
-    def calc_distance(self):
+    def calc_distance(self, start_index=None, end_index=None):
         distance = 0
 
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
+            points = list(zip(self.values_streams["latitude"], self.values_streams["longitude"]))
+            if start_index and end_index:
+                points = points[start_index:end_index]
+
             prev_pt = None
-            for lat, lon in zip(
-                self.values_streams["latitude"], self.values_streams["longitude"]
-            ):
+
+            for lat, lon in points:
                 # support points with missing values
                 if prev_pt and prev_pt[0] and prev_pt[1] and lat and lon:
                     distance += haversine((lat, lon), prev_pt)
                 prev_pt = (lat, lon)
 
-        if (
-            distance == 0
-            and "distance" in self.values_streams
-            and len(self.values_streams["distance"]) > 0
-        ):
+        if distance == 0 and "distance" in self.values_streams and len(self.values_streams["distance"]) > 0:
             # use the pre-calculated distance stream if we didn't calculate one
             return self.values_streams["distance"][-1]
 
         return distance
 
-    def calc_distance_values(self):
+    def calc_distance_values(self, start_index=None, end_index=None):
         values = []
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
-            positions = [
-                x
-                for x in zip(
-                    self.values_streams["latitude"], self.values_streams["longitude"]
-                )
-            ]
+            positions = [x for x in zip(self.values_streams["latitude"], self.values_streams["longitude"])]
+
+            if start_index and end_index:
+                positions = positions[start_index:end_index]
+
             for prev, pos in zip(positions, positions[1:]):
                 dist = haversine(prev, pos)
                 values.append(values[-1] + dist)
 
         return values
 
-    def calc_elapsed_time(self):
+    def calc_elapsed_time(self, start_index=None, end_index=None):
         if "time" in self.values_streams and self.values_streams["time"]:
-            return (
-                self.values_streams["time"][-1] - self.values_streams["time"][0]
-            ).total_seconds()
+            if start_index and end_index:
+                return (self.values_streams["time"][end_index] - self.values_streams["time"][start_index]).total_seconds()
+
+            return (self.values_streams["time"][-1] - self.values_streams["time"][0]).total_seconds()
         else:
             return 0
 
-    def calc_elevation_gain(self):
+    def calc_elevation_gain(self, start_index=None, end_index=None):
         elevation_gain = 0
         if "elevation" in self.values_streams:
-            for previous_point, point in zip(
-                self.values_streams["elevation"], self.values_streams["elevation"][1:]
-            ):
+            points = list(
+                zip(
+                    self.values_streams["elevation"],
+                    self.values_streams["elevation"][1:],
+                )
+            )
+            if start_index and end_index:
+                points = points[start_index:end_index]
+
+            for previous_point, point in points:
                 if point and previous_point and point > previous_point:
                     elevation_gain += point - previous_point
 
         return elevation_gain
 
-    def calc_elevation_loss(self):
+    def calc_elevation_loss(self, start_index=None, end_index=None):
         elevation_loss = 0
         if "elevation" in self.values_streams:
-            for previous_point, point in zip(
-                self.values_streams["elevation"], self.values_streams["elevation"][1:]
-            ):
+            points = list(
+                zip(
+                    self.values_streams["elevation"],
+                    self.values_streams["elevation"][1:],
+                )
+            )
+            if start_index and end_index:
+                points = points[start_index:end_index]
+
+            for previous_point, point in points:
                 if point and previous_point and point < previous_point:
                     elevation_loss -= point - previous_point
 
         return elevation_loss
 
-    def calc_pace(self):
-        if not self.distance or not self.elapsed_time:
-            return 0
-        return self.elapsed_time / self.distance
-
-    def calc_moving_pace(self):
-        if not self.distance or not self.elapsed_time:
-            return 0
-        return self.calc_moving_time() / self.distance
-
-    def calc_moving_time(self, threshold_m=0.79):
-        if not all(
-            [x in self.values_streams for x in ["longitude", "latitude", "time"]]
-        ):
+    def calc_moving_time(self, *, threshold_m=0.79, start_index=None, end_index=None):
+        if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return 0
 
         prev = None
         stationary_seconds = 0
 
-        for point in zip(
+        points = list(zip(
             self.values_streams["latitude"],
             self.values_streams["longitude"],
             self.values_streams["time"],
-        ):
+        ))
+
+        if start_index and end_index:
+            points = points[start_index:end_index]
+
+        for point in points:
             if prev and point[0] and point[1]:
                 dist_km = haversine(prev, point)
                 dist_m = dist_km * 1000
@@ -487,12 +484,10 @@ class Activity:
             if point[0] and point[1]:
                 prev = point
 
-        return self.calc_elapsed_time() - stationary_seconds
+        return self.calc_elapsed_time(start_index=start_index, end_index=end_index) - stationary_seconds
 
-    def calc_splits(self, split: Decimal = Decimal("1.0")) -> list[int]:
-        if not all(
-            [x in self.values_streams for x in ["longitude", "latitude", "time"]]
-        ):
+    def calc_splits(self, split: Decimal = Decimal("1.0"), start_index=None, end_index=None) -> list[int]:
+        if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return []
 
         splits = []
@@ -501,11 +496,16 @@ class Activity:
         distance = 0
         prev = None
 
-        for lat, lon, clock in zip(
+        points = zip(
             self.values_streams["latitude"],
             self.values_streams["longitude"],
             self.values_streams["time"],
-        ):
+        )
+
+        if start_index and end_index:
+            points = points[start_index:end_index]
+
+        for lat, lon, clock in points:
             if lat is None or lon is None:
                 continue
 
@@ -519,6 +519,24 @@ class Activity:
             prev = (lat, lon)
 
         return splits
+
+    def calc_pace(self, start_index=None, end_index=None):
+        t = self.calc_elapsed_time(start_index=start_index, end_index=end_index)
+        d = self.calc_distance(start_index=start_index, end_index=end_index)
+
+        if not t and not d:
+            return 0
+
+        return t / d
+
+    def calc_moving_pace(self, start_index=None, end_index=None):
+        t = self.calc_moving_time(start_index=start_index, end_index=end_index)
+        d = self.calc_distance(start_index=start_index, end_index=end_index)
+
+        if not t and not d:
+            return 0
+
+        return t / d
 
     """
     Utilities functions
@@ -566,6 +584,14 @@ class Activity:
                     return i
 
             prev = point
+    
+    def index_at_time(self, time_seconds):
+        start = self.values_streams["time"][0]
+
+        for i, dt in enumerate(self.values_streams["time"]):
+            if (dt - start).total_seconds() >= time_seconds:
+                return i
+        return 0
 
     def clock_at_distance(self, dist_km):
         distance = 0.0

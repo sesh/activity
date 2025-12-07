@@ -96,10 +96,7 @@ def txt_encode(obj):
 
     if isinstance(obj, fitdecode.FitDefinitionMessage):
         return PrintableObject(
-            _label=(
-                f"chunk#{obj.chunk.index} - fit_definition - {obj.name} "
-                f"(loc#{obj.local_mesg_num} glob#{obj.global_mesg_num})"
-            ),
+            _label=(f"chunk#{obj.chunk.index} - fit_definition - {obj.name} " f"(loc#{obj.local_mesg_num} glob#{obj.global_mesg_num})"),
             chunk=obj.chunk,
             header=PrintableObject(
                 local_mesg_num=obj.local_mesg_num,
@@ -114,10 +111,7 @@ def txt_encode(obj):
 
     if isinstance(obj, fitdecode.FitDataMessage):
         return PrintableObject(
-            _label=(
-                f"chunk#{obj.chunk.index} - fit_data - {obj.name} "
-                f"(loc#{obj.local_mesg_num} glob#{obj.global_mesg_num})"
-            ),
+            _label=(f"chunk#{obj.chunk.index} - fit_data - {obj.name} " f"(loc#{obj.local_mesg_num} glob#{obj.global_mesg_num})"),
             chunk=obj.chunk,
             header=PrintableObject(
                 local_mesg_num=obj.local_mesg_num,
@@ -145,9 +139,7 @@ class PrintableObject:
         "_key_suffix",
     )
 
-    def __init__(
-        self, *, _label=None, _pad=" ", _key_prefix="", _key_suffix="  ", **props
-    ):
+    def __init__(self, *, _label=None, _pad=" ", _key_prefix="", _key_suffix="  ", **props):
         self._label = _label
         self._dict = OrderedDict()
         self._max_key_length = 0
@@ -263,9 +255,7 @@ def txt_print(obj, *, indent="\t", level=0):
         # first pass to check if we can keep this list on a single line
         one_line = True
         for value in obj:
-            if value is not None and not isinstance(
-                value, (bool, int, float, decimal.Decimal)
-            ):
+            if value is not None and not isinstance(value, (bool, int, float, decimal.Decimal)):
                 one_line = False
                 break
 
@@ -436,8 +426,7 @@ def main(args=None):
 
                 if (
                     options.nounk
-                    and frame.frame_type
-                    in (fitdecode.FIT_FRAME_DEFINITION, fitdecode.FIT_FRAME_DATA)
+                    and frame.frame_type in (fitdecode.FIT_FRAME_DEFINITION, fitdecode.FIT_FRAME_DATA)
                     and frame.mesg_type is None
                 ):
                     continue
@@ -457,8 +446,7 @@ def main(args=None):
                 frames.append(frame)
     except Exception:
         print(
-            "WARNING: error(s) occurred while parsing FIT file. "
-            "See output file for more info.",
+            "WARNING: error(s) occurred while parsing FIT file. " "See output file for more info.",
             file=sys.stderr,
         )
         exception_msg = traceback.format_exc()

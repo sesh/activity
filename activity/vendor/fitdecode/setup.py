@@ -16,14 +16,10 @@ with open(
 ) as fp:
     exec(fp.read(), META)
 
-with open(
-    os.path.join(THIS_DIR, "README.rst"), mode="rt", encoding="utf-8", errors="strict"
-) as fp:
+with open(os.path.join(THIS_DIR, "README.rst"), mode="rt", encoding="utf-8", errors="strict") as fp:
     readme = fp.read()
 
-with open(
-    os.path.join(THIS_DIR, "HISTORY.rst"), mode="rt", encoding="utf-8", errors="strict"
-) as fp:
+with open(os.path.join(THIS_DIR, "HISTORY.rst"), mode="rt", encoding="utf-8", errors="strict") as fp:
     history = fp.read()
 
 setuptools.setup(

@@ -25,9 +25,7 @@ def _invalid_test_file(name):
 
 
 def _secs_to_dt(secs):
-    return datetime.datetime.fromtimestamp(
-        secs + fitdecode.FIT_UTC_REFERENCE, datetime.timezone.utc
-    )
+    return datetime.datetime.fromtimestamp(secs + fitdecode.FIT_UTC_REFERENCE, datetime.timezone.utc)
 
 
 def _generate_messages(mesg_num, local_mesg_num, field_defs, endian="<", data=None):
@@ -44,9 +42,7 @@ def _generate_messages(mesg_num, local_mesg_num, field_defs, endian="<", data=No
     s += struct.pack("%sHB" % endian, mesg_num, len(field_defs))
 
     for def_num, base_type in field_defs:
-        base_type = [
-            bt for bt in fitdecode.types.BASE_TYPES.values() if bt.name == base_type
-        ][0]
+        base_type = [bt for bt in fitdecode.types.BASE_TYPES.values() if bt.name == base_type][0]
         base_type_list.append(base_type)
         s += struct.pack("<3B", def_num, base_type.size, base_type.identifier)
 
@@ -88,9 +84,7 @@ def _generate_fitfile(data=None, endian="<"):
     # Prototcol version 1.0, profile version 1.52
     header = struct.pack("<2BHI4s", 14, 16, 152, len(fit_data), b".FIT")
 
-    file_data = (
-        header + struct.pack("<H", fitdecode.utils.compute_crc(header)) + fit_data
-    )
+    file_data = header + struct.pack("<H", fitdecode.utils.compute_crc(header)) + fit_data
 
     return file_data + struct.pack("<H", fitdecode.utils.compute_crc(file_data))
 
@@ -118,9 +112,7 @@ class FitReaderTestCase(unittest.TestCase):
 
             # read src_file chunk by chunk
             try:
-                with fitdecode.FitReader(
-                    src_file, check_crc=fitdecode.CrcCheck.RAISE, keep_raw_chunks=True
-                ) as fit:
+                with fitdecode.FitReader(src_file, check_crc=fitdecode.CrcCheck.RAISE, keep_raw_chunks=True) as fit:
                     for record in fit:
                         raw_content += record.chunk.bytes
             except Exception:
@@ -208,9 +200,7 @@ class FitReaderTestCase(unittest.TestCase):
         """
         tuple(
             fitdecode.FitReader(
-                _invalid_test_file(
-                    "elemnt-bolt-no-application-id-inside-developer-data-id.fit"
-                ),
+                _invalid_test_file("elemnt-bolt-no-application-id-inside-developer-data-id.fit"),
                 check_crc=fitdecode.CrcCheck.RAISE,
                 keep_raw_chunks=True,
             )
@@ -272,11 +262,7 @@ class FitReaderTestCase(unittest.TestCase):
         )
 
         # make a generator of 'record' messages
-        records = (
-            r
-            for r in fit
-            if isinstance(r, fitdecode.FitDataMessage) and r.name == "record"
-        )
+        records = (r for r in fit if isinstance(r, fitdecode.FitDataMessage) and r.name == "record")
 
         # skip empty record for now (sets timestamp via header)
         empty_record = next(records)
@@ -326,11 +312,7 @@ class FitReaderTestCase(unittest.TestCase):
         )
 
         # parse the whole content
-        fit = tuple(
-            fitdecode.FitReader(
-                fit_data, check_crc=fitdecode.CrcCheck.RAISE, keep_raw_chunks=False
-            )
-        )
+        fit = tuple(fitdecode.FitReader(fit_data, check_crc=fitdecode.CrcCheck.RAISE, keep_raw_chunks=False))
 
         event = fit[4]
         self.assertEqual(event.name, "event")
@@ -381,11 +363,7 @@ class FitReaderTestCase(unittest.TestCase):
         )
 
         # parse the whole content
-        fit = tuple(
-            fitdecode.FitReader(
-                fit_data, check_crc=fitdecode.CrcCheck.RAISE, keep_raw_chunks=False
-            )
-        )
+        fit = tuple(fitdecode.FitReader(fit_data, check_crc=fitdecode.CrcCheck.RAISE, keep_raw_chunks=False))
 
         sport_point = fit[4]
         self.assertEqual(sport_point.name, "event")
@@ -428,29 +406,19 @@ class FitReaderTestCase(unittest.TestCase):
             self.assertEqual(gear_change.get_field(field).value, 20)
 
     def test_fitparse_parsing_edge_500_fit_file(self):
-        self._fitparse_csv_test_helper(
-            "garmin-edge-500-activity.fit", "garmin-edge-500-activity-records.csv"
-        )
+        self._fitparse_csv_test_helper("garmin-edge-500-activity.fit", "garmin-edge-500-activity-records.csv")
 
     def test_fitparse_parsing_fenix_5_bike_fit_file(self):
-        self._fitparse_csv_test_helper(
-            "garmin-fenix-5-bike.fit", "garmin-fenix-5-bike-records.csv"
-        )
+        self._fitparse_csv_test_helper("garmin-fenix-5-bike.fit", "garmin-fenix-5-bike-records.csv")
 
     def test_fitparse_parsing_fenix_5_run_fit_file(self):
-        self._fitparse_csv_test_helper(
-            "garmin-fenix-5-run.fit", "garmin-fenix-5-run-records.csv"
-        )
+        self._fitparse_csv_test_helper("garmin-fenix-5-run.fit", "garmin-fenix-5-run-records.csv")
 
     def test_fitparse_parsing_fenix_5_walk_fit_file(self):
-        self._fitparse_csv_test_helper(
-            "garmin-fenix-5-walk.fit", "garmin-fenix-5-walk-records.csv"
-        )
+        self._fitparse_csv_test_helper("garmin-fenix-5-walk.fit", "garmin-fenix-5-walk-records.csv")
 
     def test_fitparse_parsing_edge_820_fit_file(self):
-        self._fitparse_csv_test_helper(
-            "garmin-edge-820-bike.fit", "garmin-edge-820-bike-records.csv"
-        )
+        self._fitparse_csv_test_helper("garmin-edge-820-bike.fit", "garmin-edge-820-bike-records.csv")
 
     def _fitparse_csv_test_helper(self, fit_file, csv_file):
         csv_fp = open(_test_file(csv_file), "r")
@@ -467,11 +435,7 @@ class FitReaderTestCase(unittest.TestCase):
         )
 
         # make a generator of 'record' messages
-        messages = (
-            r
-            for r in fit
-            if isinstance(r, fitdecode.FitDataMessage) and r.name == "record"
-        )
+        messages = (r for r in fit if isinstance(r, fitdecode.FitDataMessage) and r.name == "record")
 
         # for fixups
         last_valid_lat, last_valid_long = None, None
@@ -487,9 +451,7 @@ class FitReaderTestCase(unittest.TestCase):
 
                 if field_name == "timestamp":
                     # adjust GMT to PDT and format
-                    fit_value = (fit_value - datetime.timedelta(hours=7)).strftime(
-                        "%a %b %d %H:%M:%S PDT %Y"
-                    )
+                    fit_value = (fit_value - datetime.timedelta(hours=7)).strftime("%a %b %d %H:%M:%S PDT %Y")
 
                 # track last valid lat/longs
                 if field_name == "position_lat":
@@ -522,8 +484,7 @@ class FitReaderTestCase(unittest.TestCase):
                     self.assertEqual(
                         fit_value,
                         csv_value,
-                        msg="For %s, FIT value '%s' did not match CSV value '%s'"
-                        % (field_name, fit_value, csv_value),
+                        msg="For %s, FIT value '%s' did not match CSV value '%s'" % (field_name, fit_value, csv_value),
                     )
 
         try:
@@ -547,11 +508,7 @@ class FitReaderTestCase(unittest.TestCase):
         )
 
         # find the first 'session' data message
-        msg = next(
-            r
-            for r in fit
-            if isinstance(r, fitdecode.FitDataMessage) and r.name == "session"
-        )
+        msg = next(r for r in fit if isinstance(r, fitdecode.FitDataMessage) and r.name == "session")
 
         self.assertEqual(msg.get_value("avg_speed", fit_type="uint16"), 5.86)
 
@@ -590,11 +547,7 @@ class FitReaderTestCase(unittest.TestCase):
 
     def test_fitparse_int_long(self):
         """Test that ints are properly shifted and scaled"""
-        fit = tuple(
-            fitdecode.FitReader(
-                _test_file("event_timestamp.fit"), check_crc=fitdecode.CrcCheck.RAISE
-            )
-        )
+        fit = tuple(fitdecode.FitReader(_test_file("event_timestamp.fit"), check_crc=fitdecode.CrcCheck.RAISE))
         raw_value = fit[-2].get_value("event_timestamp", idx=0, raw_value=True)
         self.assertEqual(raw_value, 863.486328125)
 

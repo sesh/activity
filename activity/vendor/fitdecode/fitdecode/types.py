@@ -420,15 +420,9 @@ BASE_TYPE_BYTE = BaseType(
 
 
 BASE_TYPES = {
-    0x00: BaseType(
-        name="enum", identifier=0x00, fmt="B", parse=lambda x: None if x == 0xFF else x
-    ),  # noqa
-    0x01: BaseType(
-        name="sint8", identifier=0x01, fmt="b", parse=lambda x: None if x == 0x7F else x
-    ),  # noqa
-    0x02: BaseType(
-        name="uint8", identifier=0x02, fmt="B", parse=lambda x: None if x == 0xFF else x
-    ),  # noqa
+    0x00: BaseType(name="enum", identifier=0x00, fmt="B", parse=lambda x: None if x == 0xFF else x),  # noqa
+    0x01: BaseType(name="sint8", identifier=0x01, fmt="b", parse=lambda x: None if x == 0x7F else x),  # noqa
+    0x02: BaseType(name="uint8", identifier=0x02, fmt="B", parse=lambda x: None if x == 0xFF else x),  # noqa
     0x83: BaseType(
         name="sint16",
         identifier=0x83,
@@ -466,15 +460,9 @@ BASE_TYPES = {
         fmt="d",
         parse=lambda x: None if math.isnan(x) else x,
     ),  # noqa
-    0x0A: BaseType(
-        name="uint8z", identifier=0x0A, fmt="B", parse=lambda x: None if x == 0 else x
-    ),  # noqa
-    0x8B: BaseType(
-        name="uint16z", identifier=0x8B, fmt="H", parse=lambda x: None if x == 0 else x
-    ),  # noqa
-    0x8C: BaseType(
-        name="uint32z", identifier=0x8C, fmt="I", parse=lambda x: None if x == 0 else x
-    ),  # noqa
+    0x0A: BaseType(name="uint8z", identifier=0x0A, fmt="B", parse=lambda x: None if x == 0 else x),  # noqa
+    0x8B: BaseType(name="uint16z", identifier=0x8B, fmt="H", parse=lambda x: None if x == 0 else x),  # noqa
+    0x8C: BaseType(name="uint32z", identifier=0x8C, fmt="I", parse=lambda x: None if x == 0 else x),  # noqa
     0x0D: BASE_TYPE_BYTE,
     0x8E: BaseType(
         name="sint64",
@@ -488,7 +476,5 @@ BASE_TYPES = {
         fmt="Q",
         parse=lambda x: None if x == 0xFFFFFFFFFFFFFFFF else x,
     ),  # noqa
-    0x90: BaseType(
-        name="uint64z", identifier=0x90, fmt="Q", parse=lambda x: None if x == 0 else x
-    ),
+    0x90: BaseType(name="uint64z", identifier=0x90, fmt="Q", parse=lambda x: None if x == 0 else x),
 }  # noqa

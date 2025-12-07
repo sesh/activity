@@ -12,9 +12,7 @@ def haversine(point1, point2, *, gpxpy=False) -> float:
         return haversine_old(point1, point2)
 
 
-def haversine_gpxpy(
-    latitude_1: float, longitude_1: float, latitude_2: float, longitude_2: float
-) -> float:
+def haversine_gpxpy(latitude_1: float, longitude_1: float, latitude_2: float, longitude_2: float) -> float:
     """
     https://github.com/tkrajina/gpxpy/blob/09fc46b3cad16b5bf49edf8e7ae873794a959620/gpxpy/geo.py#L34-L50
 
@@ -110,11 +108,7 @@ def etree_to_dict_no_namespaces(t):
 
 def parse_args(args):
     result = {
-        a.split("=")[0]: (
-            int(a.split("=")[1])
-            if "=" in a and a.split("=")[1].isnumeric()
-            else a.split("=")[1] if "=" in a else True
-        )
+        a.split("=")[0]: (int(a.split("=")[1]) if "=" in a and a.split("=")[1].isnumeric() else a.split("=")[1] if "=" in a else True)
         for a in args
         if "--" in a
     }

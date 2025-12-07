@@ -87,9 +87,7 @@ class DataProcessorBase:
             self._run_processor(f"process_units_{field_data.units}", reader, field_data)
 
     def on_process_message(self, reader, data_message):
-        self._run_processor(
-            f"process_message_{data_message.def_mesg.name}", reader, data_message
-        )
+        self._run_processor(f"process_message_{data_message.def_mesg.name}", reader, data_message)
 
     def _run_processor(self, method_name, reader, data):
         method = self._resolve_method(method_name)
@@ -139,9 +137,7 @@ class DefaultDataProcessor(DataProcessorBase):
         The resulting `datetime.datetime` object is timezone-aware (UTC).
         """
         if field_data.value is not None and field_data.value >= FIT_DATETIME_MIN:
-            field_data.value = datetime.datetime.fromtimestamp(
-                FIT_UTC_REFERENCE + field_data.value, datetime.timezone.utc
-            )
+            field_data.value = datetime.datetime.fromtimestamp(FIT_UTC_REFERENCE + field_data.value, datetime.timezone.utc)
             field_data.units = None  # units were 's', set to None
 
     def process_type_local_date_time(self, reader, field_data):
@@ -156,9 +152,7 @@ class DefaultDataProcessor(DataProcessorBase):
             # This value was created on the device using its local timezone.
             # Unless we know that timezone, this value won't be correct.
             # However, if we assume UTC, at least it'll be consistent.
-            field_data.value = datetime.datetime.fromtimestamp(
-                FIT_UTC_REFERENCE + field_data.value, datetime.timezone.utc
-            )
+            field_data.value = datetime.datetime.fromtimestamp(FIT_UTC_REFERENCE + field_data.value, datetime.timezone.utc)
             field_data.units = None
 
     def process_type_localtime_into_day(self, reader, field_data):
@@ -180,13 +174,9 @@ class DefaultDataProcessor(DataProcessorBase):
         # We want to convert only populated *event_timestamp* fields that were
         # originally computed from the *event_timestamp_12* value
         if data_message.has_field(profile.FIELD_NUM_HR_EVENT_TIMESTAMP_12):
-            for field_data in data_message.get_fields(
-                profile.FIELD_NUM_HR_EVENT_TIMESTAMP
-            ):
+            for field_data in data_message.get_fields(profile.FIELD_NUM_HR_EVENT_TIMESTAMP):
                 if field_data is not None:
-                    field_data.value = datetime.datetime.fromtimestamp(
-                        FIT_UTC_REFERENCE + field_data.value, datetime.timezone.utc
-                    )
+                    field_data.value = datetime.datetime.fromtimestamp(FIT_UTC_REFERENCE + field_data.value, datetime.timezone.utc)
                     field_data.units = None  # units were 's', set to None
 
 

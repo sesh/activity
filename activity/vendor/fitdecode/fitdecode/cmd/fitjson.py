@@ -26,9 +26,7 @@ class RecordJSONEncoder(json.JSONEncoder):
             return obj.isoformat()
 
         if isinstance(obj, fitdecode.FitChunk):
-            return OrderedDict(
-                (("index", obj.index), ("offset", obj.offset), ("size", len(obj.bytes)))
-            )
+            return OrderedDict((("index", obj.index), ("offset", obj.offset), ("size", len(obj.bytes))))
 
         if isinstance(obj, fitdecode.types.FieldDefinition):
             return OrderedDict(
@@ -250,8 +248,7 @@ def main(args=None):
 
                 if (
                     options.nounk
-                    and frame.frame_type
-                    in (fitdecode.FIT_FRAME_DEFINITION, fitdecode.FIT_FRAME_DATA)
+                    and frame.frame_type in (fitdecode.FIT_FRAME_DEFINITION, fitdecode.FIT_FRAME_DATA)
                     and frame.mesg_type is None
                 ):
                     continue
@@ -271,8 +268,7 @@ def main(args=None):
                 frames.append(frame)
     except Exception:
         print(
-            "WARNING: the following error occurred while parsing FIT file. "
-            "Output file might be incomplete or corrupted.",
+            "WARNING: the following error occurred while parsing FIT file. " "Output file might be incomplete or corrupted.",
             file=sys.stderr,
         )
         print("", file=sys.stderr)

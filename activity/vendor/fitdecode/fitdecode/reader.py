@@ -187,31 +187,23 @@ class FitReader:
         self._fd_owned = None  # do we own self._fd?
         self._read_offset = 0  # read cursor position in the file
         self._read_size = 0  # count bytes read from this file so far in total
-        self._fit_file_index = (
-            -1
-        )  # the index of the current FIT file in this data stream  # noqa
+        self._fit_file_index = -1  # the index of the current FIT file in this data stream  # noqa
 
         # per-chunk state (private)
         self._chunk_index = 0  # the index number of the current chunk that is currently being read  # noqa
-        self._chunk_offset = (
-            0  # the offset of the current chunk (relative to `read_offset`)  # noqa
-        )
+        self._chunk_offset = 0  # the offset of the current chunk (relative to `read_offset`)  # noqa
         self._chunk_size = 0  # the size of the current chunk
 
         # per-FIT-file state (private)
-        self._crc = (
-            utils.CRC_START
-        )  # current CRC value, updated upon every read, reset on each new "FIT file"  # noqa
+        self._crc = utils.CRC_START  # current CRC value, updated upon every read, reset on each new "FIT file"  # noqa
         self._header = None  # `FitHeader` of the **current** "FIT file"
         self._current_file_id = None  # current file_id `FitDataMessage` object
-        self._body_bytes_left = 0  # the number of bytes that are still to read before reaching the CRC footer of the current "FIT file"  # noqa
-        self._local_mesg_defs = (
-            {}
-        )  # registry of every `FitDefinitionMessage` in this file so far  # noqa
-        self._local_dev_types = {}  # registry of developer types
-        self._compressed_ts_accumulator = (
-            0  # state value for the so-called "Compressed Timestamp Header"  # noqa
+        self._body_bytes_left = (
+            0  # the number of bytes that are still to read before reaching the CRC footer of the current "FIT file"  # noqa
         )
+        self._local_mesg_defs = {}  # registry of every `FitDefinitionMessage` in this file so far  # noqa
+        self._local_dev_types = {}  # registry of developer types
+        self._compressed_ts_accumulator = 0  # state value for the so-called "Compressed Timestamp Header"  # noqa
         self._accumulators = {}
         self._last_timestamp = 0
         self._hr_start_timestamp = 0  # special case for the ``hr`` message
@@ -375,9 +367,7 @@ class FitReader:
 
                 record = self._read_record()
 
-                assert isinstance(
-                    record, (records.FitDefinitionMessage, records.FitDataMessage)
-                )
+                assert isinstance(record, (records.FitDefinitionMessage, records.FitDataMessage))
 
                 assert self._chunk_size <= self._body_bytes_left
                 self._body_bytes_left -= self._chunk_size
@@ -423,9 +413,7 @@ class FitReader:
 
     def _read_header(self):
         try:
-            chunk, header_size, proto_ver, profile_ver, body_size, header_magic = (
-                self._read_struct("<2BHI4s")
-            )
+            chunk, header_size, proto_ver, profile_ver, body_size, header_magic = self._read_struct("<2BHI4s")
         except FitEOFError as exc:
             if not exc.got:
                 # regular EOF: storage is empty or previous "FIT file" ended
@@ -444,16 +432,11 @@ class FitReader:
         if extra_header_size:
             # at least 2 bytes expected for the CRC
             if extra_header_size < 2:
-                raise FitHeaderError(
-                    f"unsupported FIT header (CRC field missing; "
-                    f"header offset: {self._chunk_offset})"
-                )
+                raise FitHeaderError(f"unsupported FIT header (CRC field missing; " f"header offset: {self._chunk_offset})")
 
             extra_chunk = self._read_bytes(extra_header_size)
             if len(extra_chunk) != extra_header_size:
-                raise FitHeaderError(
-                    f"truncated FIT header " f"(header offset: {self._chunk_offset})"
-                )
+                raise FitHeaderError(f"truncated FIT header " f"(header offset: {self._chunk_offset})")
 
             (read_crc,) = struct.unpack("<H", extra_chunk)
             if not read_crc:  # can be null according to SDK
@@ -463,13 +446,8 @@ class FitReader:
                 computed_crc = utils.compute_crc(chunk)
                 crc_matched = computed_crc == read_crc
 
-                if not crc_matched and (
-                    self.check_crc is CrcCheck.WARN or self.check_crc is CrcCheck.RAISE
-                ):
-                    msg = (
-                        f"mismatching CRC in FIT header "
-                        f"(header offset: {self._chunk_offset})"
-                    )
+                if not crc_matched and (self.check_crc is CrcCheck.WARN or self.check_crc is CrcCheck.RAISE):
+                    msg = f"mismatching CRC in FIT header " f"(header offset: {self._chunk_offset})"
 
                     if self.check_crc is CrcCheck.RAISE:
                         raise FitCRCError(msg)
@@ -500,9 +478,7 @@ class FitReader:
         computed_crc = self._crc
         chunk, read_crc = self._read_struct("<H")
 
-        if computed_crc != read_crc and (
-            self.check_crc is CrcCheck.WARN or self.check_crc is CrcCheck.RAISE
-        ):
+        if computed_crc != read_crc and (self.check_crc is CrcCheck.WARN or self.check_crc is CrcCheck.RAISE):
             msg = (
                 f"mismatching CRC in FIT footer "
                 f"(footer offset: {self._chunk_offset}; "
@@ -515,9 +491,7 @@ class FitReader:
             elif self.check_crc is CrcCheck.WARN:
                 warnings.warn(msg)
 
-        crc_obj = records.FitCRC(
-            read_crc, computed_crc == read_crc, self._keep_chunk(chunk)
-        )
+        crc_obj = records.FitCRC(read_crc, computed_crc == read_crc, self._keep_chunk(chunk))
 
         if self._processor:
             self._processor.on_crc(self, crc_obj)
@@ -577,9 +551,7 @@ class FitReader:
             extra_chunk = self._read_bytes(field_unpacker.size)
             record_chunks.append(extra_chunk)
 
-            field_def_num, field_size, base_type_num = field_unpacker.unpack(
-                extra_chunk
-            )
+            field_def_num, field_size, base_type_num = field_unpacker.unpack(extra_chunk)
 
             field = mesg_type.fields.get(field_def_num) if mesg_type else None
             base_type = types.BASE_TYPES.get(base_type_num, types.BASE_TYPE_BYTE)
@@ -611,14 +583,10 @@ class FitReader:
             if field and field.components:
                 for component in field.components:
                     if component.accumulate:
-                        accumulators = self._accumulators.setdefault(
-                            global_mesg_num, {}
-                        )
+                        accumulators = self._accumulators.setdefault(global_mesg_num, {})
                         accumulators[component.def_num] = 0
 
-            field_defs.append(
-                types.FieldDefinition(field, field_def_num, base_type, field_size)
-            )
+            field_defs.append(types.FieldDefinition(field, field_def_num, base_type, field_size))
 
         # read developer field definitions if any
         if record_header.is_developer_data:
@@ -632,9 +600,7 @@ class FitReader:
                 extra_chunk = self._read_bytes(field_unpacker.size)
                 record_chunks.append(extra_chunk)
 
-                field_def_num, field_size, dev_data_index = field_unpacker.unpack(
-                    extra_chunk
-                )
+                field_def_num, field_size, dev_data_index = field_unpacker.unpack(extra_chunk)
 
                 field = self._get_dev_type(
                     record_header.local_mesg_num,
@@ -643,11 +609,7 @@ class FitReader:
                     field_def_num,
                 )
 
-                dev_field_defs.append(
-                    types.DevFieldDefinition(
-                        field, dev_data_index, field_def_num, field_size
-                    )
-                )
+                dev_field_defs.append(types.DevFieldDefinition(field, dev_data_index, field_def_num, field_size))
 
         def_mesg = records.FitDefinitionMessage(
             record_header.is_developer_data,
@@ -686,9 +648,7 @@ class FitReader:
 
             field, parent_field = field_def.field, None
             if field:
-                field, parent_field = self._resolve_subfield(
-                    field, def_mesg, raw_values
-                )
+                field, parent_field = self._resolve_subfield(field, def_mesg, raw_values)
 
                 # resolve component fields
                 if field.components:
@@ -720,17 +680,13 @@ class FitReader:
 
                         # apply scale and offset from component, not from the
                         # dynamic field as they may differ
-                        cmp_raw_value = self._apply_scale_offset(
-                            component, cmp_raw_value
-                        )
+                        cmp_raw_value = self._apply_scale_offset(component, cmp_raw_value)
 
                         # extract the component's dynamic field from def_mesg
                         cmp_field = def_mesg.mesg_type.fields[component.def_num]
 
                         # resolve a possible subfield
-                        cmp_field, cmp_parent_field = self._resolve_subfield(
-                            cmp_field, def_mesg, raw_values
-                        )
+                        cmp_field, cmp_parent_field = self._resolve_subfield(cmp_field, def_mesg, raw_values)
                         cmp_value = cmp_field.render(cmp_raw_value)
 
                         # special case: hr.event_timestamp_12
@@ -753,10 +709,7 @@ class FitReader:
                 decoded_value = raw_value
 
             # specifics
-            if (
-                field_def.def_num == profile.FIELD_NUM_TIMESTAMP
-                and raw_value is not None
-            ):
+            if field_def.def_num == profile.FIELD_NUM_TIMESTAMP and raw_value is not None:
                 self._last_timestamp = decoded_value
                 # update compressed timestamp field
                 self._compressed_ts_accumulator = raw_value
@@ -782,9 +735,7 @@ class FitReader:
 
         # apply timestamp field if we got a header
         if record_header.time_offset is not None:
-            ts_value = self._apply_compressed_accumulation(
-                record_header.time_offset, self._compressed_ts_accumulator, 5
-            )
+            ts_value = self._apply_compressed_accumulation(record_header.time_offset, self._compressed_ts_accumulator, 5)
 
             self._compressed_ts_accumulator = ts_value
 
@@ -831,11 +782,7 @@ class FitReader:
             base_type = field_def.base_type
 
             # struct format to read "[N]" base types
-            unpacker = struct.Struct(
-                f"{def_mesg.endian}"
-                f"{int(field_def.size / base_type.size)}"
-                f"{base_type.fmt}"
-            )
+            unpacker = struct.Struct(f"{def_mesg.endian}" f"{int(field_def.size / base_type.size)}" f"{base_type.fmt}")
 
             # read the chunk
             chunk = self._read_bytes(unpacker.size)
@@ -911,10 +858,7 @@ class FitReader:
             dev_data_index = message.get_raw_value("developer_data_index")
             dev_data_index = int(dev_data_index)
         except KeyError as exc:
-            msg = (
-                f"{str(exc)} (local_mesg_num: {message.local_mesg_num}; "
-                f"chunk_offset: {self._chunk_offset})"
-            )
+            msg = f"{str(exc)} (local_mesg_num: {message.local_mesg_num}; " f"chunk_offset: {self._chunk_offset})"
 
             if self.error_handling is ErrorHandling.RAISE:
                 raise FitParseError(self._chunk_offset, msg)
@@ -953,10 +897,7 @@ class FitReader:
             try:
                 raw_value = message.get_raw_value(raw_value_name)
             except KeyError as exc:
-                msg = (
-                    f"{str(exc)} (local_mesg_num: {message.local_mesg_num}; "
-                    f"chunk_offset: {self._chunk_offset})"
-                )
+                msg = f"{str(exc)} (local_mesg_num: {message.local_mesg_num}; " f"chunk_offset: {self._chunk_offset})"
 
                 if self.error_handling is ErrorHandling.RAISE:
                     raise FitParseError(self._chunk_offset, msg)
@@ -1000,9 +941,7 @@ class FitReader:
             dev_data_index, name, field_def_num, base_type, units, native_field_num
         )
 
-    def _get_dev_type(
-        self, local_mesg_num, global_mesg_num, dev_data_index, field_def_num
-    ):
+    def _get_dev_type(self, local_mesg_num, global_mesg_num, dev_data_index, field_def_num):
         try:
             dev_type = self._local_dev_types[dev_data_index]
         except KeyError:
@@ -1057,10 +996,7 @@ class FitReader:
                     for field_def, raw_value in zip(def_mesg.field_defs, raw_values):
                         # if there's a definition number AND raw value match on
                         # the reference field, then we return this subfield
-                        if (
-                            field_def.def_num == ref_field.def_num
-                            and ref_field.raw_value == raw_value
-                        ):
+                        if field_def.def_num == ref_field.def_num and ref_field.raw_value == raw_value:
                             return sub_field, field
 
         return field, None

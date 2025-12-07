@@ -123,9 +123,7 @@ def do_build_html(args):
             # exit_code = sphinx_build_cmd.main([
             #     "-b", "html", SPHINX_SOURCE_DIR, SPHINX_HTML_BUILD_DIR] +
             #     args.extra_args)
-            exit_code = _invoke_sphinx_build(
-                "-b", "html", SPHINX_SOURCE_DIR, SPHINX_HTML_BUILD_DIR, *args.extra_args
-            )
+            exit_code = _invoke_sphinx_build("-b", "html", SPHINX_SOURCE_DIR, SPHINX_HTML_BUILD_DIR, *args.extra_args)
             _post_sphinx_html(context)
             del context
 
@@ -150,15 +148,11 @@ def do_build_html(args):
             # launch the http service if not up already
             if not http_thread:
                 # prepare http handler class
-                http_handler_class = functools.partial(
-                    QuietHTTPHandler, directory=SPHINX_HTML_BUILD_DIR
-                )
+                http_handler_class = functools.partial(QuietHTTPHandler, directory=SPHINX_HTML_BUILD_DIR)
                 # http_handler_class.protocol_version = "HTTP/1.0"
 
                 # create the http server object
-                http_server = http.server.ThreadingHTTPServer(
-                    (args.bind, args.port), http_handler_class
-                )
+                http_server = http.server.ThreadingHTTPServer((args.bind, args.port), http_handler_class)
 
                 # create thread object
                 http_thread = threading.Thread(target=http_server.serve_forever)
@@ -260,27 +254,20 @@ def main(args=None):
         "-w",
         action="store_true",
         help=(
-            "Launch system's default web browser with the homepage of the "
-            "generated documentation open. Only if --serve is not used."
+            "Launch system's default web browser with the homepage of the " "generated documentation open. Only if --serve is not used."
         ),
     )
     parser_html.add_argument(
         "--rebuild",
         "-r",
         action="store_true",
-        help=(
-            "Rebuild documentation instead of just updating it. This fully "
-            "cleanups the output directory first."
-        ),
+        help=("Rebuild documentation instead of just updating it. This fully " "cleanups the output directory first."),
     )
     parser_html.add_argument(
         "--serve",
         "-s",
         action="store_true",
-        help=(
-            "Launch an HTTP service to serve the result and enter in "
-            "interactive mode"
-        ),
+        help=("Launch an HTTP service to serve the result and enter in " "interactive mode"),
     )
     parser_html.add_argument(
         "--bind",
