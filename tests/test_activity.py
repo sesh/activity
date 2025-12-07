@@ -172,7 +172,7 @@ class ActivityCalculationsTestCase(TestCase):
         self.assertEqual(format_mins_seconds(a.calc_moving_time()), "00:44:40")
         self.assertEqual(format_mins_seconds(a.calc_pace()), "00:04:37")
         self.assertEqual(format_mins_seconds(a.calc_moving_pace()), "00:04:37")
-        
+
     def test_calcs_range_no_pauses(self):
         a = Activity.load("tests/testfiles/applewatch-workout-laps.fit")
         start_index = a.index_at_time(12 * 60)
@@ -186,8 +186,7 @@ class ActivityCalculationsTestCase(TestCase):
         self.assertEqual(format_mins_seconds(a.calc_moving_time(start_index=start_index, end_index=end_index)), "00:06:00")
         self.assertEqual(format_mins_seconds(a.calc_pace(start_index=start_index, end_index=end_index)), "00:04:16")
         self.assertEqual(format_mins_seconds(a.calc_moving_pace(start_index=start_index, end_index=end_index)), "00:04:16")
-        
+
         # less useful
         self.assertEqual(f"{a.calc_elevation_gain(start_index=start_index, end_index=end_index):.1f}", "6.4")
         self.assertEqual(f"{a.calc_elevation_loss(start_index=start_index, end_index=end_index):.1f}", "2.4")
-        

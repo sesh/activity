@@ -464,11 +464,13 @@ class Activity:
         prev = None
         stationary_seconds = 0
 
-        points = list(zip(
-            self.values_streams["latitude"],
-            self.values_streams["longitude"],
-            self.values_streams["time"],
-        ))
+        points = list(
+            zip(
+                self.values_streams["latitude"],
+                self.values_streams["longitude"],
+                self.values_streams["time"],
+            )
+        )
 
         if start_index and end_index:
             points = points[start_index:end_index]
@@ -584,7 +586,7 @@ class Activity:
                     return i
 
             prev = point
-    
+
     def index_at_time(self, time_seconds):
         start = self.values_streams["time"][0]
 
