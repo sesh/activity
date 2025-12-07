@@ -172,6 +172,8 @@ class ActivityCalculationsTestCase(TestCase):
         self.assertEqual(format_mins_seconds(a.calc_moving_time()), "00:44:40")
         self.assertEqual(format_mins_seconds(a.calc_pace()), "00:04:37")
         self.assertEqual(format_mins_seconds(a.calc_moving_pace()), "00:04:37")
+        self.assertEqual(f"{a.calc_average_heart_rate():.0f}", "157")
+        self.assertEqual(f"{a.calc_average_power():.0f}", "282")
 
     def test_calcs_range_no_pauses(self):
         a = Activity.load("tests/testfiles/applewatch-workout-laps.fit")
@@ -186,6 +188,8 @@ class ActivityCalculationsTestCase(TestCase):
         self.assertEqual(format_mins_seconds(a.calc_moving_time(start_index=start_index, end_index=end_index)), "00:06:00")
         self.assertEqual(format_mins_seconds(a.calc_pace(start_index=start_index, end_index=end_index)), "00:04:16")
         self.assertEqual(format_mins_seconds(a.calc_moving_pace(start_index=start_index, end_index=end_index)), "00:04:16")
+        self.assertEqual(f"{a.calc_average_heart_rate(start_index=start_index, end_index=end_index):.0f}", "161")
+        self.assertEqual(f"{a.calc_average_power(start_index=start_index, end_index=end_index):.0f}", "307")
 
         # less useful
         self.assertEqual(f"{a.calc_elevation_gain(start_index=start_index, end_index=end_index):.1f}", "6.4")

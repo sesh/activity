@@ -540,6 +540,25 @@ class Activity:
 
         return t / d
 
+    def calc_average_heart_rate(self, start_index=None, end_index=None):
+        return self._calc_stream_average("heart_rate", start_index, end_index)
+
+    def calc_average_power(self, start_index=None, end_index=None):
+        return self._calc_stream_average("power", start_index, end_index)
+
+    def _calc_stream_average(self, stream_name, start_index=None, end_index=None):
+        if stream_name not in self.values_streams:
+            return 0
+
+        points = [x for x in self.values_streams[stream_name] if x]
+        if start_index and end_index:
+            points = points[start_index:end_index]
+
+        if not points:
+            return 0
+
+        return sum(points) / len(points)
+
     """
     Utilities functions
     """
