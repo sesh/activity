@@ -377,6 +377,7 @@ class Activity:
         return [[min_lon, min_lat], [max_lon, max_lat]]
 
     def calc_distance(self, start_index=None, end_index=None):
+        # returns in km
         distance = 0
 
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
@@ -394,7 +395,8 @@ class Activity:
 
         if distance == 0 and "distance" in self.values_streams and len(self.values_streams["distance"]) > 0:
             # use the pre-calculated distance stream if we didn't calculate one
-            return self.values_streams["distance"][-1]
+            # convert from m to km
+            return self.values_streams["distance"][-1] / 1000
 
         return distance
 

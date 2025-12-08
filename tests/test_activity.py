@@ -137,12 +137,17 @@ class ActivityTests(TestCase):
     def test_auuki_file(self):
         auuki_ride = Activity.load("tests/testfiles/auuki.fit")
         self.assertEqual(auuki_ride.calc_elapsed_time(), 2043.0)
-        self.assertEqual(auuki_ride.calc_distance(), 17093.1)
+        self.assertEqual(f"{auuki_ride.calc_distance():.2f}", "17.09")
 
     def test_parse_laps(self):
         w = Activity.load("tests/testfiles/applewatch-workout-laps.fit")
         self.assertEqual(len(w.laps), 10)
         self.assertEqual(round(w.laps[1]["total_elapsed_time"], 0), 360)
+    
+    def test_indoor_run(self):
+        w = Activity.load("tests/testfiles/applewatch-treadmill-run.fit")
+        self.assertEqual(int(w.calc_elapsed_time()), 2912)
+        self.assertEqual(f"{w.distance:.2f}", "9.32")
 
 
 class BulkFileLoadingTestCase(TestCase):
