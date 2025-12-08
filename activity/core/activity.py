@@ -420,8 +420,8 @@ class Activity:
                 return (self.values_streams["time"][end_index] - self.values_streams["time"][start_index]).total_seconds()
 
             return (self.values_streams["time"][-1] - self.values_streams["time"][0]).total_seconds()
-        else:
-            return 0
+
+        return 0
 
     def calc_elevation_gain(self, start_index=None, end_index=None):
         elevation_gain = 0
@@ -461,7 +461,7 @@ class Activity:
 
     def calc_moving_time(self, *, threshold_m=0.79, start_index=None, end_index=None):
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
-            return 0
+            return self.calc_elapsed_time()
 
         prev = None
         stationary_seconds = 0

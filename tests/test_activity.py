@@ -147,6 +147,8 @@ class ActivityTests(TestCase):
     def test_indoor_run(self):
         w = Activity.load("tests/testfiles/applewatch-treadmill-run.fit")
         self.assertEqual(int(w.calc_elapsed_time()), 2912)
+        self.assertEqual(int(w.calc_moving_time()), 2912)
+        self.assertEqual(int(w.calc_elevation_gain()), 0)
         self.assertEqual(f"{w.distance:.2f}", "9.32")
 
 
