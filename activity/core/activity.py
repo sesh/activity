@@ -528,7 +528,7 @@ class Activity:
         t = self.calc_elapsed_time(start_index=start_index, end_index=end_index)
         d = self.calc_distance(start_index=start_index, end_index=end_index)
 
-        if not t and not d:
+        if not t or not d:
             return 0
 
         return t / d
@@ -537,7 +537,7 @@ class Activity:
         t = self.calc_moving_time(start_index=start_index, end_index=end_index)
         d = self.calc_distance(start_index=start_index, end_index=end_index)
 
-        if not t and not d:
+        if not t or not d:
             return 0
 
         return t / d
