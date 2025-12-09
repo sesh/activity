@@ -150,6 +150,10 @@ class ActivityTests(TestCase):
         self.assertEqual(int(w.calc_moving_time()), 2912)
         self.assertEqual(int(w.calc_elevation_gain()), 0)
         self.assertEqual(f"{w.distance:.2f}", "9.32")
+    
+    def test_windowed_average(self):
+        run = Activity.load("tests/testfiles/cpt.fit")
+        self.assertEqual(run.calc_windowed_power(30), [])
 
 
 class BulkFileLoadingTestCase(TestCase):
