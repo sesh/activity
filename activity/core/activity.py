@@ -545,7 +545,8 @@ class Activity:
     def calc_pace_values(self, start_index=None, end_index=None):
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return []
-
+        
+        prev = None
         pace_values = []
         points = zip(
             self.values_streams["latitude"],
