@@ -560,7 +560,7 @@ class Activity:
             if lat is None or lon in None:
                 pace_values.append(None)
                 continue
-            
+
             if prev:
                 t = prev[2] - clock
                 d = haversine((prev[0], prev[1]), (lat, lon))
@@ -586,16 +586,16 @@ class Activity:
         return self._calc_stream_windowed_average("power", window, start_index, end_index)
 
     def calc_clock_values(self, start_index=None, end_index=None):
-        if 'time' not in self.values_streams:
+        if "time" not in self.values_streams:
             return []
 
-        points = [x for x in self.values_streams['time'] if x]
+        points = [x for x in self.values_streams["time"] if x]
         if start_index and end_index:
             points = points[start_index:end_index]
 
         if not points:
             return []
-        
+
         start = points[0]
         return [(x - start).total_seconds() for x in points]
 
@@ -613,13 +613,13 @@ class Activity:
         return sum(points) / len(points)
 
     def _calc_stream_windowed_average(self, stream_name, window_seconds=30, start_index=None, end_index=None):
-        if 'time' not in self.values_streams:
+        if "time" not in self.values_streams:
             return 0
 
-        points = [(t, x) for (t, x) in zip(self.values_streams['time'], self.values_streams[stream_name]) if x]
+        points = [(t, x) for (t, x) in zip(self.values_streams["time"], self.values_streams[stream_name]) if x]
         if start_index and end_index:
             points = points[start_index:end_index]
-        
+
         if not points:
             return 0
 
@@ -639,7 +639,7 @@ class Activity:
                 window_start_idx += 1
 
             # Compute average over window [window_start_idx .. i]
-            window_values = vals[window_start_idx:i+1]
+            window_values = vals[window_start_idx : i + 1]
             avg = sum(window_values) / len(window_values)
             result.append(avg)
 

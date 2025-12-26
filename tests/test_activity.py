@@ -143,17 +143,17 @@ class ActivityTests(TestCase):
         w = Activity.load("tests/testfiles/applewatch-workout-laps.fit")
         self.assertEqual(len(w.laps), 10)
         self.assertEqual(round(w.laps[1]["total_elapsed_time"], 0), 360)
-    
+
     def test_indoor_run(self):
         w = Activity.load("tests/testfiles/applewatch-treadmill-run.fit")
         self.assertEqual(int(w.calc_elapsed_time()), 2912)
         self.assertEqual(int(w.calc_moving_time()), 2912)
         self.assertEqual(int(w.calc_elevation_gain()), 0)
         self.assertEqual(f"{w.distance:.2f}", "9.32")
-    
+
     def test_windowed_average(self):
         run = Activity.load("tests/testfiles/cpt.fit")
-        self.assertEqual(run.calc_windowed_power(30), [])
+        self.assertEqual([int(x) for x in run.calc_windowed_power(30)[:3]], [334, 320, 306])
 
 
 class BulkFileLoadingTestCase(TestCase):
