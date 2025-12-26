@@ -563,7 +563,7 @@ class Activity:
                 continue
 
             if prev:
-                t = prev[2] - clock
+                t = (prev[2] - clock).total_seconds()
                 d = haversine((prev[0], prev[1]), (lat, lon))
 
                 if not t or not d:
