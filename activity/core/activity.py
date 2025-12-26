@@ -557,7 +557,7 @@ class Activity:
             points = points[start_index:end_index]
 
         for lat, lon, clock in points:
-            if lat is None or lon in None:
+            if lat is None or lon is None:
                 pace_values.append(None)
                 continue
 
