@@ -542,6 +542,40 @@ class Activity:
 
         return t / d
 
+    def calc_pace_values(self, start_index=None, end_index=None):
+        if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
+            return []
+
+        pace_values = []
+        points = zip(
+            self.values_streams["latitude"],
+            self.values_streams["longitude"],
+            self.values_streams["time"],
+        )
+
+        if start_index and end_index:
+            points = points[start_index:end_index]
+
+        for lat, lon, clock in points:
+            if lat is None or lon in None:
+                pace_values.append(None)
+                continue
+            
+            if prev:
+                t = prev[2] - clock
+                d = haversine((prev[0], prev[1]), (lat, lon))
+
+                if not t or not d:
+                    pace_values.append(0)
+                else:
+                    pace_values.append(t / d)
+            else:
+                pace_values.append(None)
+
+            prev = (lat, lon, clock)
+
+        return pace_values
+
     def calc_average_heart_rate(self, start_index=None, end_index=None):
         return self._calc_stream_average("heart_rate", start_index, end_index)
 
