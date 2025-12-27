@@ -631,6 +631,9 @@ class Activity:
         return sum(points) / len(points)
 
     def _calc_stream_windowed_average(self, time_values, stream_values, window_seconds=30):
+        # this is just an averaged window
+        # uplot has examples of other smoothing options:
+        # https://leeoniya.github.io/uPlot/demos/data-smoothing.html
         result = []
 
         start_time = time_values[0]
