@@ -151,10 +151,18 @@ class ActivityTests(TestCase):
         self.assertEqual(int(w.calc_elevation_gain()), 0)
         self.assertEqual(f"{w.distance:.2f}", "9.32")
 
-    def test_windowed_average(self):
+    def test_windowed_power(self):
         run = Activity.load("tests/testfiles/cpt.fit")
-        self.assertEqual([int(x) for x in run.calc_windowed_power(30)[:3]], [334, 320, 306])
-
+        windowed_power = run.calc_windowed_power(30)
+        self.assertEqual([int(x) if x else None for x in windowed_power[:8]], [None, None, 334, 320, 306, 296, 291, 288])
+        self.assertEqual(len(run.values_streams["time"]), len(windowed_power))
+    
+    def test_windowed_pace(self):
+        run = Activity.load("tests/testfiles/cpt.fit")
+        windowed_pace = run.calc_windowed_pace()
+        self.assertEqual([int(x) if x else None for x in windowed_pace[:8]], [None, 533, 440, 389, 363, 349, 339, 297])
+        self.assertEqual(len(run.values_streams["time"]), len(windowed_pace))
+    
 
 class BulkFileLoadingTestCase(TestCase):
 

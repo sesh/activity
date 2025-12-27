@@ -577,6 +577,16 @@ class Activity:
 
         return pace_values
 
+    def calc_windowed_pace(self, window=5, start_index=None, end_index=None):
+        time_values = self.values_streams["time"]
+        pace_values = self.calc_pace_values()
+
+        if start_index and end_index:
+            time_values = time_values[start_index:end_index]
+            pace_values = pace_values[start_index:end_index]
+
+        return self._calc_stream_windowed_average(time_values, pace_values, window)
+
     def calc_average_heart_rate(self, start_index=None, end_index=None):
         return self._calc_stream_average("heart_rate", start_index, end_index)
 
@@ -584,7 +594,14 @@ class Activity:
         return self._calc_stream_average("power", start_index, end_index)
 
     def calc_windowed_power(self, window=30, start_index=None, end_index=None):
-        return self._calc_stream_windowed_average("power", window, start_index, end_index)
+        time_values = self.values_streams["time"]
+        power_values = self.values_streams["power"]
+
+        if start_index and end_index:
+            time_values = time_values[start_index:end_index]
+            power_values = power_values[start_index:end_index]
+
+        return self._calc_stream_windowed_average(time_values, power_values, window)
 
     def calc_clock_values(self, start_index=None, end_index=None):
         if "time" not in self.values_streams:
@@ -613,38 +630,30 @@ class Activity:
 
         return sum(points) / len(points)
 
-    def _calc_stream_windowed_average(self, stream_name, window_seconds=30, start_index=None, end_index=None):
-        if "time" not in self.values_streams:
-            return 0
-
-        points = [(t, x) for (t, x) in zip(self.values_streams["time"], self.values_streams[stream_name]) if x]
-        if start_index and end_index:
-            points = points[start_index:end_index]
-
-        if not points:
-            return 0
-
-        start_time = points[0][0]
-        times = [(p[0] - start_time).total_seconds() for p in points]
-        vals = [p[1] for p in points]
-
+    def _calc_stream_windowed_average(self, time_values, stream_values, window_seconds=30):
         result = []
-        window_start_idx = 0  # sliding pointer for efficiency
 
-        for i in range(len(points)):
+        start_time = time_values[0]
+        times = [(t - start_time).total_seconds() for t in time_values]
+        window_start_idx = 0
+
+        for i in range(len(times)):
             current_time = times[i]
             window_min_time = current_time - window_seconds
 
-            # Advance the window start pointer
             while window_start_idx < i and times[window_start_idx] < window_min_time:
                 window_start_idx += 1
 
-            # Compute average over window [window_start_idx .. i]
-            window_values = vals[window_start_idx : i + 1]
-            avg = sum(window_values) / len(window_values)
+            # strip out missing values 
+            window_values = [x for x in stream_values[window_start_idx:i + 1] if x]
+            if len(window_values):
+                avg = sum(window_values) / len(window_values)
+            else:
+                avg = None
             result.append(avg)
-
+        
         return result
+
 
     """
     Utilities functions
