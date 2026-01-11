@@ -308,9 +308,13 @@ class Activity:
 
         for k, fn in JSON_EXPORTABLE_FIELDS.items():
             if not fn:
-                result[k] = getattr(self, k)
+                result[k] = getattr(self, k, None)
             else:
-                result[k] = fn(getattr(self, k))
+                val = getattr(self, k, None)
+                if val:
+                    result[k] = fn(val)
+                else:
+                    result[k] = val
 
         if include_streams:
             for k in STREAM_NAMES:

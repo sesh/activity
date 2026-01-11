@@ -169,6 +169,10 @@ class BulkFileLoadingTestCase(TestCase):
     def test_just_load_all_files_without_exception(self):
         for fn in Path("tests/testfiles").glob("*"):
             a = Activity.load(str(fn))
+            j = a.as_json()
+            Activity.load_json(json.loads(j))
+
+            a.as_geojson()
 
 
 class ActivityCalculationsTestCase(TestCase):
