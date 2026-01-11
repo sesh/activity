@@ -405,7 +405,7 @@ class Activity:
         return distance
 
     def calc_distance_values(self, start_index=None, end_index=None):
-        values = []
+        values = [0]
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
             positions = [x for x in zip(self.values_streams["latitude"], self.values_streams["longitude"])]
 
@@ -504,11 +504,11 @@ class Activity:
         distance = 0
         prev = None
 
-        points = zip(
+        points = list(zip(
             self.values_streams["latitude"],
             self.values_streams["longitude"],
             self.values_streams["time"],
-        )
+        ))
 
         if start_index and end_index:
             points = points[start_index:end_index]
@@ -552,11 +552,11 @@ class Activity:
         
         prev = None
         pace_values = []
-        points = zip(
+        points = list(zip(
             self.values_streams["latitude"],
             self.values_streams["longitude"],
             self.values_streams["time"],
-        )
+        ))
 
         if start_index and end_index:
             points = points[start_index:end_index]
@@ -587,18 +587,14 @@ class Activity:
 
         prev = None
         grade_values = []
-        points = zip(
+        points = list(zip(
             self.values_streams["latitude"],
             self.values_streams["longitude"],
             self.values_streams["elevation"],
-        )
+        ))
 
         if start_index and end_index:
-            points = list(zip(
-                self.values_streams["latitude"],
-                self.values_streams["longitude"],
-                self.values_streams["elevation"],
-            ))[start_index:end_index]
+            points = points[start_index:end_index]
 
         for lat, lon, elev in points:
             if lat is None or lon is None or elev is None:
