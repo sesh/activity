@@ -581,6 +581,49 @@ class Activity:
 
         return pace_values
 
+    def calc_grade_values(self, start_index=None, end_index=None):
+        if not all([x in self.values_streams for x in ["longitude", "latitude", "elevation"]]):
+            return []
+
+        prev = None
+        grade_values = []
+        points = zip(
+            self.values_streams["latitude"],
+            self.values_streams["longitude"],
+            self.values_streams["elevation"],
+        )
+
+        if start_index and end_index:
+            points = list(zip(
+                self.values_streams["latitude"],
+                self.values_streams["longitude"],
+                self.values_streams["elevation"],
+            ))[start_index:end_index]
+
+        for lat, lon, elev in points:
+            if lat is None or lon is None or elev is None:
+                grade_values.append(None)
+                continue
+
+            if prev:
+                # Calculate horizontal distance in meters (haversine returns km)
+                horizontal_distance_m = haversine((prev[0], prev[1]), (lat, lon)) * 1000
+                # Calculate elevation change in meters
+                elevation_change_m = elev - prev[2]
+
+                if horizontal_distance_m > 0:
+                    # Grade as percentage: (rise / run) * 100
+                    grade = (elevation_change_m / horizontal_distance_m) * 100
+                    grade_values.append(grade)
+                else:
+                    grade_values.append(0)
+            else:
+                grade_values.append(None)
+
+            prev = (lat, lon, elev)
+
+        return grade_values
+
     def calc_windowed_pace(self, window=5, start_index=None, end_index=None):
         time_values = self.values_streams["time"]
         pace_values = self.calc_pace_values()
