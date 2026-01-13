@@ -350,6 +350,48 @@ class Activity:
                 }
             )
 
+    def as_gpx_track(self):
+        """
+        Outputs a GPX file containing the route
+
+        This will only include the latitude, longitude and elevation streams.
+        """
+        if not all([x in self.values_streams for x in ["latitude", "longitude"]]):
+            return None
+
+        gpx = ElementTree.Element(
+            "gpx",
+            {
+                "version": "1.1",
+                "creator": "https://github.com/sesh/activity",
+                "xmlns": "http://www.topografix.com/GPX/1/1",
+                "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                "xsi:schemaLocation": "http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd",
+            },
+        )
+
+        trk = ElementTree.SubElement(gpx, "trk")
+        trkseg = ElementTree.SubElement(trk, "trkseg")
+
+        latitudes = self.values_streams["latitude"]
+        longitudes = self.values_streams["longitude"]
+        elevations = self.values_streams["elevation"] if "elevation" in self.values_streams else [None] * len(latitudes)
+
+        for lat, lon, ele in zip(
+            latitudes,
+            longitudes,
+            elevations,
+        ):
+            if lat is not None and lon is not None:
+                trkpt = ElementTree.SubElement(trkseg, "trkpt", {"lat": str(lat), "lon": str(lon)})
+
+                # Add elevation if available
+                if ele is not None:
+                    ele_elem = ElementTree.SubElement(trkpt, "ele")
+                    ele_elem.text = str(ele)
+
+        return ElementTree.tostring(gpx, encoding="unicode", xml_declaration=True)
+
     def streams(self):
         return list(self.values_streams.keys())
 
@@ -504,11 +546,13 @@ class Activity:
         distance = 0
         prev = None
 
-        points = list(zip(
-            self.values_streams["latitude"],
-            self.values_streams["longitude"],
-            self.values_streams["time"],
-        ))
+        points = list(
+            zip(
+                self.values_streams["latitude"],
+                self.values_streams["longitude"],
+                self.values_streams["time"],
+            )
+        )
 
         if start_index and end_index:
             points = points[start_index:end_index]
@@ -549,14 +593,16 @@ class Activity:
     def calc_pace_values(self, start_index=None, end_index=None):
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return []
-        
+
         prev = None
         pace_values = []
-        points = list(zip(
-            self.values_streams["latitude"],
-            self.values_streams["longitude"],
-            self.values_streams["time"],
-        ))
+        points = list(
+            zip(
+                self.values_streams["latitude"],
+                self.values_streams["longitude"],
+                self.values_streams["time"],
+            )
+        )
 
         if start_index and end_index:
             points = points[start_index:end_index]
@@ -587,11 +633,13 @@ class Activity:
 
         prev = None
         grade_values = []
-        points = list(zip(
-            self.values_streams["latitude"],
-            self.values_streams["longitude"],
-            self.values_streams["elevation"],
-        ))
+        points = list(
+            zip(
+                self.values_streams["latitude"],
+                self.values_streams["longitude"],
+                self.values_streams["elevation"],
+            )
+        )
 
         if start_index and end_index:
             points = points[start_index:end_index]
@@ -690,16 +738,15 @@ class Activity:
             while window_start_idx < i and times[window_start_idx] < window_min_time:
                 window_start_idx += 1
 
-            # strip out missing values 
-            window_values = [x for x in stream_values[window_start_idx:i + 1] if x]
+            # strip out missing values
+            window_values = [x for x in stream_values[window_start_idx : i + 1] if x]
             if len(window_values):
                 avg = sum(window_values) / len(window_values)
             else:
                 avg = None
             result.append(avg)
-        
-        return result
 
+        return result
 
     """
     Utilities functions

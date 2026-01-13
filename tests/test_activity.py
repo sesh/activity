@@ -46,6 +46,11 @@ class ActivityTests(TestCase):
         geojson_json = json.loads(geojson)
         self.assertEqual(geojson_json["geometry"]["type"], "LineString")
 
+    def test_export_as_gpx_track(self):
+        a = Activity.load("tests/testfiles/nailcan-singletrack.gpx")
+        gpx = a.as_gpx_track()
+        self.assertTrue('<trkpt lat="-36.07216889038682" lon="146.91225768998265"><ele>0.167</ele></trkpt>' in gpx)
+
     def test_export_as_json(self):
         zwift_ride = Activity.load("tests/testfiles/zwift-ride.fit")
         j = zwift_ride.as_json()
@@ -156,13 +161,13 @@ class ActivityTests(TestCase):
         windowed_power = run.calc_windowed_power(30)
         self.assertEqual([int(x) if x else None for x in windowed_power[:8]], [None, None, 334, 320, 306, 296, 291, 288])
         self.assertEqual(len(run.values_streams["time"]), len(windowed_power))
-    
+
     def test_windowed_pace(self):
         run = Activity.load("tests/testfiles/cpt.fit")
         windowed_pace = run.calc_windowed_pace()
         self.assertEqual([int(x) if x else None for x in windowed_pace[:8]], [None, 533, 440, 389, 363, 349, 339, 297])
         self.assertEqual(len(run.values_streams["time"]), len(windowed_pace))
-    
+
 
 class BulkFileLoadingTestCase(TestCase):
 
