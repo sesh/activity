@@ -67,6 +67,17 @@ def format_mins_seconds(d):
     return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
+def format_mins_seconds_lstrip(d):
+    s = format_mins_seconds(d)
+    if s.startswith("00:"):
+        s = s[3:]
+
+    if s.startswith("0"):
+        s = s[1:]
+
+    return s
+
+
 def duration_to_seconds(s):
     # HH:MM:SS to x
     parts = s.split(":")

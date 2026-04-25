@@ -404,6 +404,7 @@ class Activity:
     """
 
     def calc_bounding_box(self, start_index=None, end_index=None):
+        # [[min_lon, min_lat], [max_lon, max_lat]] in degrees
         if not all([x in self.values_streams for x in ["latitude", "longitude"]]):
             return []
 
@@ -413,7 +414,7 @@ class Activity:
         if not latitudes or not longitudes:
             return None
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             latitudes = latitudes[start_index:end_index]
             longitudes = longitudes[start_index:end_index]
 
@@ -423,12 +424,12 @@ class Activity:
         return [[min_lon, min_lat], [max_lon, max_lat]]
 
     def calc_distance(self, start_index=None, end_index=None):
-        # returns in km
+        # float, distance in km
         distance = 0
 
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
             points = list(zip(self.values_streams["latitude"], self.values_streams["longitude"]))
-            if start_index and end_index:
+            if start_index is not None and end_index is not None:
                 points = points[start_index:end_index]
 
             prev_pt = None
@@ -447,11 +448,12 @@ class Activity:
         return distance
 
     def calc_distance_values(self, start_index=None, end_index=None):
+        # list[float], cumulative distance in km
         values = [0]
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
             positions = [x for x in zip(self.values_streams["latitude"], self.values_streams["longitude"])]
 
-            if start_index and end_index:
+            if start_index is not None and end_index is not None:
                 positions = positions[start_index:end_index]
 
             for prev, pos in zip(positions, positions[1:]):
@@ -461,8 +463,9 @@ class Activity:
         return values
 
     def calc_elapsed_time(self, start_index=None, end_index=None):
+        # float, elapsed time in seconds
         if "time" in self.values_streams and self.values_streams["time"]:
-            if start_index and end_index:
+            if start_index is not None and end_index is not None:
                 return (self.values_streams["time"][end_index] - self.values_streams["time"][start_index]).total_seconds()
 
             return (self.values_streams["time"][-1] - self.values_streams["time"][0]).total_seconds()
@@ -470,6 +473,7 @@ class Activity:
         return 0
 
     def calc_elevation_gain(self, start_index=None, end_index=None):
+        # float, elevation gain in m
         elevation_gain = 0
         if "elevation" in self.values_streams:
             points = list(
@@ -478,7 +482,7 @@ class Activity:
                     self.values_streams["elevation"][1:],
                 )
             )
-            if start_index and end_index:
+            if start_index is not None and end_index is not None:
                 points = points[start_index:end_index]
 
             for previous_point, point in points:
@@ -488,6 +492,7 @@ class Activity:
         return elevation_gain
 
     def calc_elevation_loss(self, start_index=None, end_index=None):
+        # float, elevation loss in m (positive value)
         elevation_loss = 0
         if "elevation" in self.values_streams:
             points = list(
@@ -496,7 +501,7 @@ class Activity:
                     self.values_streams["elevation"][1:],
                 )
             )
-            if start_index and end_index:
+            if start_index is not None and end_index is not None:
                 points = points[start_index:end_index]
 
             for previous_point, point in points:
@@ -506,6 +511,7 @@ class Activity:
         return elevation_loss
 
     def calc_moving_time(self, *, threshold_m=0.79, start_index=None, end_index=None):
+        # float, moving time in seconds
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return self.calc_elapsed_time()
 
@@ -520,7 +526,7 @@ class Activity:
             )
         )
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
         for point in points:
@@ -537,6 +543,7 @@ class Activity:
         return self.calc_elapsed_time(start_index=start_index, end_index=end_index) - stationary_seconds
 
     def calc_time_in_zone(self, zones: list[int], stream: str, start_index=None, end_index=None):
+        # list[float], time per zone in seconds
         """
         Provide zones as the top of the range for the zone with a high last value, i.e. for HR: [128, 146, 166, 180, 999]
         """
@@ -554,7 +561,7 @@ class Activity:
 
         points = list(zip(self.values_streams["time"], values_stream))
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
         prev_dt = None
@@ -588,6 +595,7 @@ class Activity:
         return zone_time_seconds
 
     def calc_splits(self, split: Decimal = Decimal("1.0"), start_index=None, end_index=None) -> list[int]:
+        # list[float], seconds per split
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return []
 
@@ -605,7 +613,7 @@ class Activity:
             )
         )
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
         for lat, lon, clock in points:
@@ -624,6 +632,7 @@ class Activity:
         return splits
 
     def calc_pace(self, start_index=None, end_index=None):
+        # float, pace in seconds per km
         t = self.calc_elapsed_time(start_index=start_index, end_index=end_index)
         d = self.calc_distance(start_index=start_index, end_index=end_index)
 
@@ -633,6 +642,7 @@ class Activity:
         return t / d
 
     def calc_moving_pace(self, start_index=None, end_index=None):
+        # float, moving pace in seconds per km
         t = self.calc_moving_time(start_index=start_index, end_index=end_index)
         d = self.calc_distance(start_index=start_index, end_index=end_index)
 
@@ -642,6 +652,7 @@ class Activity:
         return t / d
 
     def calc_pace_values(self, start_index=None, end_index=None):
+        # list[float], pace per point in seconds per km
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return []
 
@@ -655,7 +666,7 @@ class Activity:
             )
         )
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
         for lat, lon, clock in points:
@@ -679,6 +690,7 @@ class Activity:
         return pace_values
 
     def calc_grade_values(self, start_index=None, end_index=None):
+        # list[float], grade per point as a percentage
         if not all([x in self.values_streams for x in ["longitude", "latitude", "elevation"]]):
             return []
 
@@ -692,7 +704,7 @@ class Activity:
             )
         )
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
         for lat, lon, elev in points:
@@ -720,37 +732,42 @@ class Activity:
         return grade_values
 
     def calc_windowed_pace(self, window=5, start_index=None, end_index=None):
+        # list[float], windowed pace in seconds per km
         time_values = self.values_streams["time"]
         pace_values = self.calc_pace_values()
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             time_values = time_values[start_index:end_index]
             pace_values = pace_values[start_index:end_index]
 
         return self._calc_stream_windowed_average(time_values, pace_values, window)
 
     def calc_average_heart_rate(self, start_index=None, end_index=None):
+        # float, average heart rate in bpm
         return self._calc_stream_average("heart_rate", start_index, end_index)
 
     def calc_average_power(self, start_index=None, end_index=None):
+        # float, average power in watts
         return self._calc_stream_average("power", start_index, end_index)
 
     def calc_windowed_power(self, window=30, start_index=None, end_index=None):
+        # list[float], windowed power in watts
         time_values = self.values_streams["time"]
         power_values = self.values_streams["power"]
 
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             time_values = time_values[start_index:end_index]
             power_values = power_values[start_index:end_index]
 
         return self._calc_stream_windowed_average(time_values, power_values, window)
 
     def calc_clock_values(self, start_index=None, end_index=None):
+        # list[float], elapsed time from start in seconds
         if "time" not in self.values_streams:
             return []
 
         points = [x for x in self.values_streams["time"] if x]
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
         if not points:
@@ -764,7 +781,7 @@ class Activity:
             return 0
 
         points = [x for x in self.values_streams[stream_name] if x]
-        if start_index and end_index:
+        if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
         if not points:
