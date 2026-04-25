@@ -536,6 +536,57 @@ class Activity:
 
         return self.calc_elapsed_time(start_index=start_index, end_index=end_index) - stationary_seconds
 
+    def calc_time_in_zone(self, zones: list[int], stream: str, start_index=None, end_index=None):
+        """
+        Provide zones as the top of the range for the zone with a high last value, i.e. for HR: [128, 146, 166, 180, 999]
+        """
+        zone_time_seconds = [0 for _ in range(len(zones))]
+
+        # special case for this calculated stream
+        if stream == "pace":
+            values_stream = self.calc_pace_values()
+
+        else:
+            if stream not in self.values_streams:
+                return zone_time_seconds
+
+            values_stream = self.values_streams[stream]
+
+        points = list(zip(self.values_streams["time"], values_stream))
+
+        if start_index and end_index:
+            points = points[start_index:end_index]
+
+        prev_dt = None
+        prev_val = None
+        for dt, val in points:
+            elapsed = (dt - prev_dt).total_seconds() if prev_dt else 0
+
+            # if we have neither prev_val or val exit
+            if not val and not prev_val:
+                prev_dt = dt
+                continue
+
+            # if we are missing val, but have a prev_val use that
+            if not val:
+                val = prev_val
+
+            for i, z in enumerate(zones):
+                # flip between lte and gte based on the direction of the zones
+                if zones[0] < zones[-1]:
+                    if val <= z:
+                        zone_time_seconds[i] += elapsed
+                        break
+                else:
+                    if val >= z:
+                        zone_time_seconds[i] += elapsed
+                        break
+
+            prev_dt = dt
+            prev_val = val
+
+        return zone_time_seconds
+
     def calc_splits(self, split: Decimal = Decimal("1.0"), start_index=None, end_index=None) -> list[int]:
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return []
