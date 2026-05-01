@@ -154,6 +154,12 @@ class ActivityTests(TestCase):
         self.assertEqual(len(reloaded.segments), 4)
         self.assertEqual(int(reloaded.calc_pause_time()), 3837)
 
+    def test_fit_segments_drive_moving_time(self):
+        run = Activity.load("tests/testfiles/gotoes-merged.fit")
+        self.assertEqual(len(run.segments), 6)
+        self.assertEqual(int(run.calc_pause_time()), 171)
+        self.assertEqual(int(run.calc_moving_time()), 4479)
+
     def test_auuki_file(self):
         auuki_ride = Activity.load("tests/testfiles/auuki.fit")
         self.assertEqual(auuki_ride.calc_elapsed_time(), 2043.0)

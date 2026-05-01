@@ -1,4 +1,5 @@
 from decimal import Decimal
+from bisect import bisect_left, bisect_right
 from typing import Self
 from activity.utils import etree_to_dict_no_namespaces, haversine, format_mins_seconds
 from xml.etree import ElementTree  # TODO: use defused xml or similar going forward
@@ -42,6 +43,10 @@ NORMALISED_VALUES = {
     "longitude": lambda x: float(x),
     "latitude": lambda x: float(x),
     "elevation": lambda x: float(x) if x else x,
+    "heart_rate": lambda x: float(x) if x else x,
+    "power": lambda x: float(x) if x else x,
+    "cadence": lambda x: float(x) if x else x,
+    "distance": lambda x: float(x) if x else x,
     "time": lambda x: datetime.fromisoformat(x),
     "timestamp": lambda x: datetime.fromisoformat(x),
     "segments": lambda xs: (values := [datetime.fromisoformat(x) if isinstance(x, str) else x for x in xs])[
@@ -411,6 +416,78 @@ class Activity:
     def streams(self):
         return list(self.values_streams.keys())
 
+    def _stream_length(self):
+        if "time" in self.values_streams:
+            return len(self.values_streams["time"])
+
+        if self.values_streams:
+            return len(next(iter(self.values_streams.values())))
+
+        return 0
+
+    def _active_index_ranges(self, start_index=None, end_index=None):
+        stream_length = self._stream_length()
+        if stream_length == 0:
+            return []
+
+        range_start = 0 if start_index is None else max(0, start_index)
+        range_end = stream_length if end_index is None else min(end_index, stream_length)
+        if range_end <= range_start:
+            return []
+
+        if "time" not in self.values_streams or not self.values_streams["time"] or not self.segments:
+            return [(range_start, range_end)]
+
+        times = self.values_streams["time"]
+        ranges = []
+        for segment_start, segment_end in zip(self.segments[::2], self.segments[1::2]):
+            segment_start_index = bisect_left(times, segment_start)
+            segment_end_index = bisect_right(times, segment_end)
+            clipped_start = max(range_start, segment_start_index)
+            clipped_end = min(range_end, segment_end_index)
+            if clipped_end > clipped_start:
+                ranges.append((clipped_start, clipped_end))
+
+        return ranges
+
+    def _active_stream(self, stream_name, start_index=None, end_index=None):
+        if stream_name not in self.values_streams:
+            return []
+
+        values = self.values_streams[stream_name]
+        result = []
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            result.extend(values[range_start:range_end])
+
+        return result
+
+    def _active_stream_by_range(self, stream_name, start_index=None, end_index=None):
+        if stream_name not in self.values_streams:
+            return []
+
+        values = self.values_streams[stream_name]
+        return [values[range_start:range_end] for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)]
+
+    def _iter_active_points(self, *stream_names, start_index=None, end_index=None):
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            for idx in range(range_start, range_end):
+                yield tuple(
+                    self.values_streams[stream_name][idx] if idx < len(self.values_streams[stream_name]) else None
+                    for stream_name in stream_names
+                )
+
+    def _iter_active_adjacent_points(self, *stream_names, start_index=None, end_index=None):
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            prev = None
+            for idx in range(range_start, range_end):
+                point = tuple(
+                    self.values_streams[stream_name][idx] if idx < len(self.values_streams[stream_name]) else None
+                    for stream_name in stream_names
+                )
+                if prev is not None:
+                    yield prev, point
+                prev = point
+
     """
     calc_* functions should check that they have the streams needed for the calculations first, and return
     the defined default value if there is insufficient data.
@@ -424,15 +501,17 @@ class Activity:
         if not all([x in self.values_streams for x in ["latitude", "longitude"]]):
             return []
 
-        latitudes = [x for x in self.values_streams["latitude"] if x]
-        longitudes = [x for x in self.values_streams["longitude"] if x]
+        points = [
+            (lat, lon)
+            for lat, lon in self._iter_active_points("latitude", "longitude", start_index=start_index, end_index=end_index)
+            if lat is not None and lon is not None
+        ]
 
-        if not latitudes or not longitudes:
+        if not points:
             return None
 
-        if start_index is not None and end_index is not None:
-            latitudes = latitudes[start_index:end_index]
-            longitudes = longitudes[start_index:end_index]
+        latitudes = [lat for lat, _ in points]
+        longitudes = [lon for _, lon in points]
 
         min_lat, max_lat = min(latitudes), max(latitudes)
         min_lon, max_lon = min(longitudes), max(longitudes)
@@ -444,22 +523,30 @@ class Activity:
         distance = 0
 
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
-            points = list(zip(self.values_streams["latitude"], self.values_streams["longitude"]))
-            if start_index is not None and end_index is not None:
-                points = points[start_index:end_index]
-
-            prev_pt = None
-
-            for lat, lon in points:
-                # support points with missing values
-                if prev_pt and prev_pt[0] and prev_pt[1] and lat and lon:
-                    distance += haversine((lat, lon), prev_pt)
-                prev_pt = (lat, lon)
+            for (prev_lat, prev_lon), (lat, lon) in self._iter_active_adjacent_points(
+                "latitude",
+                "longitude",
+                start_index=start_index,
+                end_index=end_index,
+            ):
+                if prev_lat is not None and prev_lon is not None and lat is not None and lon is not None:
+                    distance += haversine((lat, lon), (prev_lat, prev_lon))
 
         if distance == 0 and "distance" in self.values_streams and len(self.values_streams["distance"]) > 0:
             # use the pre-calculated distance stream if we didn't calculate one
-            # convert from m to km
-            return self.values_streams["distance"][-1] / 1000
+            active_ranges = self._active_index_ranges(start_index=start_index, end_index=end_index)
+            if not active_ranges:
+                return 0
+
+            distance_m = 0
+            distance_values = self.values_streams["distance"]
+            for range_start, range_end in active_ranges:
+                segment_start = distance_values[range_start]
+                segment_end = distance_values[range_end - 1]
+                if segment_start is not None and segment_end is not None:
+                    distance_m += max(0, segment_end - segment_start)
+
+            return distance_m / 1000
 
         return distance
 
@@ -467,14 +554,19 @@ class Activity:
         # list[float], cumulative distance in km
         values = [0]
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
-            positions = [x for x in zip(self.values_streams["latitude"], self.values_streams["longitude"])]
+            for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+                positions = list(zip(self.values_streams["latitude"][range_start:range_end], self.values_streams["longitude"][range_start:range_end]))
+                if not positions:
+                    continue
 
-            if start_index is not None and end_index is not None:
-                positions = positions[start_index:end_index]
+                if len(values) > 1 or values[0] != 0:
+                    values.append(values[-1])
 
-            for prev, pos in zip(positions, positions[1:]):
-                dist = haversine(prev, pos)
-                values.append(values[-1] + dist)
+                for prev, pos in zip(positions, positions[1:]):
+                    if None in prev or None in pos:
+                        values.append(values[-1])
+                    else:
+                        values.append(values[-1] + haversine(prev, pos))
 
         return values
 
@@ -492,17 +584,12 @@ class Activity:
         # float, elevation gain in m
         elevation_gain = 0
         if "elevation" in self.values_streams:
-            points = list(
-                zip(
-                    self.values_streams["elevation"],
-                    self.values_streams["elevation"][1:],
-                )
-            )
-            if start_index is not None and end_index is not None:
-                points = points[start_index:end_index]
-
-            for previous_point, point in points:
-                if point and previous_point and point > previous_point:
+            for (previous_point,), (point,) in self._iter_active_adjacent_points(
+                "elevation",
+                start_index=start_index,
+                end_index=end_index,
+            ):
+                if point is not None and previous_point is not None and point > previous_point:
                     elevation_gain += point - previous_point
 
         return elevation_gain
@@ -511,17 +598,12 @@ class Activity:
         # float, elevation loss in m (positive value)
         elevation_loss = 0
         if "elevation" in self.values_streams:
-            points = list(
-                zip(
-                    self.values_streams["elevation"],
-                    self.values_streams["elevation"][1:],
-                )
-            )
-            if start_index is not None and end_index is not None:
-                points = points[start_index:end_index]
-
-            for previous_point, point in points:
-                if point and previous_point and point < previous_point:
+            for (previous_point,), (point,) in self._iter_active_adjacent_points(
+                "elevation",
+                start_index=start_index,
+                end_index=end_index,
+            ):
+                if point is not None and previous_point is not None and point < previous_point:
                     elevation_loss -= point - previous_point
 
         return elevation_loss
@@ -529,34 +611,30 @@ class Activity:
     def calc_moving_time(self, *, threshold_m=0.79, start_index=None, end_index=None):
         # float, moving time in seconds
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
-            return self.calc_elapsed_time()
-
-        prev = None
-        stationary_seconds = 0
-
-        points = list(
-            zip(
-                self.values_streams["latitude"],
-                self.values_streams["longitude"],
-                self.values_streams["time"],
+            return self.calc_elapsed_time(start_index=start_index, end_index=end_index) - self.calc_pause_time(
+                start_index=start_index,
+                end_index=end_index,
             )
+
+        stationary_seconds = 0
+        for (prev_lat, prev_lon, prev_time), (lat, lon, point_time) in self._iter_active_adjacent_points(
+            "latitude",
+            "longitude",
+            "time",
+            start_index=start_index,
+            end_index=end_index,
+        ):
+            if prev_lat is not None and prev_lon is not None and lat is not None and lon is not None:
+                dist_m = haversine((prev_lat, prev_lon), (lat, lon)) * 1000
+                if dist_m < threshold_m:
+                    stationary_seconds += (point_time - prev_time).total_seconds()
+
+        active_seconds = self.calc_elapsed_time(start_index=start_index, end_index=end_index) - self.calc_pause_time(
+            start_index=start_index,
+            end_index=end_index,
         )
 
-        if start_index is not None and end_index is not None:
-            points = points[start_index:end_index]
-
-        for point in points:
-            if prev and point[0] and point[1]:
-                dist_km = haversine(prev, point)
-                dist_m = dist_km * 1000
-
-                if dist_m < threshold_m:
-                    stationary_seconds += (point[2] - prev[2]).total_seconds()
-
-            if point[0] and point[1]:
-                prev = point
-
-        return self.calc_elapsed_time(start_index=start_index, end_index=end_index) - stationary_seconds
+        return active_seconds - stationary_seconds
 
     def calc_time_in_zone(self, zones: list[int], stream: str, start_index=None, end_index=None):
         # list[float], time per zone in seconds
@@ -567,46 +645,44 @@ class Activity:
 
         # special case for this calculated stream
         if stream == "pace":
-            values_stream = self.calc_pace_values()
+            time_ranges = self._active_stream_by_range("time", start_index=start_index, end_index=end_index)
+            values_ranges = [
+                self.calc_pace_values(start_index=range_start, end_index=range_end)
+                for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)
+            ]
 
         else:
             if stream not in self.values_streams:
                 return zone_time_seconds
 
-            values_stream = self.values_streams[stream]
+            time_ranges = self._active_stream_by_range("time", start_index=start_index, end_index=end_index)
+            values_ranges = self._active_stream_by_range(stream, start_index=start_index, end_index=end_index)
 
-        points = list(zip(self.values_streams["time"], values_stream))
+        for times, values in zip(time_ranges, values_ranges):
+            prev_dt = None
+            prev_val = None
+            for dt, val in zip(times, values):
+                elapsed = (dt - prev_dt).total_seconds() if prev_dt else 0
 
-        if start_index is not None and end_index is not None:
-            points = points[start_index:end_index]
+                if val is None and prev_val is None:
+                    prev_dt = dt
+                    continue
 
-        prev_dt = None
-        prev_val = None
-        for dt, val in points:
-            elapsed = (dt - prev_dt).total_seconds() if prev_dt else 0
+                if val is None:
+                    val = prev_val
 
-            # if we have neither prev_val or val exit
-            if not val and not prev_val:
+                for i, z in enumerate(zones):
+                    if zones[0] < zones[-1]:
+                        if val <= z:
+                            zone_time_seconds[i] += elapsed
+                            break
+                    else:
+                        if val >= z:
+                            zone_time_seconds[i] += elapsed
+                            break
+
                 prev_dt = dt
-                continue
-
-            # if we are missing val, but have a prev_val use that
-            if not val:
-                val = prev_val
-
-            for i, z in enumerate(zones):
-                # flip between lte and gte based on the direction of the zones
-                if zones[0] < zones[-1]:
-                    if val <= z:
-                        zone_time_seconds[i] += elapsed
-                        break
-                else:
-                    if val >= z:
-                        zone_time_seconds[i] += elapsed
-                        break
-
-            prev_dt = dt
-            prev_val = val
+                prev_val = val
 
         return zone_time_seconds
 
@@ -617,33 +693,36 @@ class Activity:
 
         splits = []
         next_split = split
-        split_start = self.values_streams["time"][0]
+        split_start = None
         distance = 0
-        prev = None
+        segment_elapsed = 0
 
-        points = list(
-            zip(
-                self.values_streams["latitude"],
-                self.values_streams["longitude"],
-                self.values_streams["time"],
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            points = list(
+                zip(
+                    self.values_streams["latitude"][range_start:range_end],
+                    self.values_streams["longitude"][range_start:range_end],
+                    self.values_streams["time"][range_start:range_end],
+                )
             )
-        )
 
-        if start_index is not None and end_index is not None:
-            points = points[start_index:end_index]
+            prev = None
+            for lat, lon, clock in points:
+                if split_start is None:
+                    split_start = segment_elapsed
 
-        for lat, lon, clock in points:
-            if lat is None or lon is None:
-                continue
+                if lat is None or lon is None:
+                    continue
 
-            if prev:
-                distance += haversine(prev, (lat, lon))
-                if distance >= next_split:
-                    splits.append((clock - split_start).total_seconds())
-                    split_start = clock
-                    next_split += split
+                if prev:
+                    segment_elapsed += (clock - prev[2]).total_seconds()
+                    distance += haversine((prev[0], prev[1]), (lat, lon))
+                    if distance >= next_split:
+                        splits.append(segment_elapsed - split_start)
+                        split_start = segment_elapsed
+                        next_split += split
 
-            prev = (lat, lon)
+                prev = (lat, lon, clock)
 
         return splits
 
@@ -672,36 +751,28 @@ class Activity:
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
             return []
 
-        prev = None
         pace_values = []
-        points = list(
-            zip(
-                self.values_streams["latitude"],
-                self.values_streams["longitude"],
-                self.values_streams["time"],
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            prev = None
+            points = zip(
+                self.values_streams["latitude"][range_start:range_end],
+                self.values_streams["longitude"][range_start:range_end],
+                self.values_streams["time"][range_start:range_end],
             )
-        )
 
-        if start_index is not None and end_index is not None:
-            points = points[start_index:end_index]
+            for lat, lon, clock in points:
+                if lat is None or lon is None:
+                    pace_values.append(None)
+                    continue
 
-        for lat, lon, clock in points:
-            if lat is None or lon is None:
-                pace_values.append(None)
-                continue
-
-            if prev:
-                t = (clock - prev[2]).total_seconds()
-                d = haversine((prev[0], prev[1]), (lat, lon))
-
-                if not t or not d:
-                    pace_values.append(0)
+                if prev:
+                    t = (clock - prev[2]).total_seconds()
+                    d = haversine((prev[0], prev[1]), (lat, lon))
+                    pace_values.append(0 if not t or not d else t / d)
                 else:
-                    pace_values.append(t / d)
-            else:
-                pace_values.append(None)
+                    pace_values.append(None)
 
-            prev = (lat, lon, clock)
+                prev = (lat, lon, clock)
 
         return pace_values
 
@@ -710,53 +781,41 @@ class Activity:
         if not all([x in self.values_streams for x in ["longitude", "latitude", "elevation"]]):
             return []
 
-        prev = None
         grade_values = []
-        points = list(
-            zip(
-                self.values_streams["latitude"],
-                self.values_streams["longitude"],
-                self.values_streams["elevation"],
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            prev = None
+            points = zip(
+                self.values_streams["latitude"][range_start:range_end],
+                self.values_streams["longitude"][range_start:range_end],
+                self.values_streams["elevation"][range_start:range_end],
             )
-        )
 
-        if start_index is not None and end_index is not None:
-            points = points[start_index:end_index]
+            for lat, lon, elev in points:
+                if lat is None or lon is None or elev is None:
+                    grade_values.append(None)
+                    continue
 
-        for lat, lon, elev in points:
-            if lat is None or lon is None or elev is None:
-                grade_values.append(None)
-                continue
-
-            if prev:
-                # Calculate horizontal distance in meters (haversine returns km)
-                horizontal_distance_m = haversine((prev[0], prev[1]), (lat, lon)) * 1000
-                # Calculate elevation change in meters
-                elevation_change_m = elev - prev[2]
-
-                if horizontal_distance_m > 0:
-                    # Grade as percentage: (rise / run) * 100
-                    grade = (elevation_change_m / horizontal_distance_m) * 100
-                    grade_values.append(grade)
+                if prev:
+                    horizontal_distance_m = haversine((prev[0], prev[1]), (lat, lon)) * 1000
+                    elevation_change_m = elev - prev[2]
+                    grade_values.append((elevation_change_m / horizontal_distance_m) * 100 if horizontal_distance_m > 0 else 0)
                 else:
-                    grade_values.append(0)
-            else:
-                grade_values.append(None)
+                    grade_values.append(None)
 
-            prev = (lat, lon, elev)
+                prev = (lat, lon, elev)
 
         return grade_values
 
     def calc_windowed_pace(self, window=5, start_index=None, end_index=None):
         # list[float], windowed pace in seconds per km
-        time_values = self.values_streams["time"]
-        pace_values = self.calc_pace_values()
+        result = []
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            time_values = self.values_streams["time"][range_start:range_end]
+            pace_values = self.calc_pace_values(start_index=range_start, end_index=range_end)
+            if time_values:
+                result.extend(self._calc_stream_windowed_average(time_values, pace_values, window))
 
-        if start_index is not None and end_index is not None:
-            time_values = time_values[start_index:end_index]
-            pace_values = pace_values[start_index:end_index]
-
-        return self._calc_stream_windowed_average(time_values, pace_values, window)
+        return result
 
     def calc_average_heart_rate(self, start_index=None, end_index=None):
         # float, average heart rate in bpm
@@ -768,29 +827,41 @@ class Activity:
 
     def calc_windowed_power(self, window=30, start_index=None, end_index=None):
         # list[float], windowed power in watts
-        time_values = self.values_streams["time"]
-        power_values = self.values_streams["power"]
+        result = []
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            time_values = self.values_streams["time"][range_start:range_end]
+            power_values = self.values_streams["power"][range_start:range_end]
+            if time_values:
+                result.extend(self._calc_stream_windowed_average(time_values, power_values, window))
 
-        if start_index is not None and end_index is not None:
-            time_values = time_values[start_index:end_index]
-            power_values = power_values[start_index:end_index]
-
-        return self._calc_stream_windowed_average(time_values, power_values, window)
+        return result
 
     def calc_clock_values(self, start_index=None, end_index=None):
         # list[float], elapsed time from start in seconds
         if "time" not in self.values_streams:
             return []
 
-        points = [x for x in self.values_streams["time"] if x]
-        if start_index is not None and end_index is not None:
-            points = points[start_index:end_index]
+        elapsed = []
+        total_seconds = 0
+        first_point = True
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            points = [x for x in self.values_streams["time"][range_start:range_end] if x]
+            if not points:
+                continue
 
-        if not points:
-            return []
+            prev = None
+            for point in points:
+                if first_point:
+                    elapsed.append(0)
+                    first_point = False
+                elif prev is None:
+                    elapsed.append(total_seconds)
+                else:
+                    total_seconds += (point - prev).total_seconds()
+                    elapsed.append(total_seconds)
+                prev = point
 
-        start = points[0]
-        return [(x - start).total_seconds() for x in points]
+        return elapsed
 
     def calc_pause_time(self, start_index=None, end_index=None):
         # float, paused time in seconds
@@ -824,7 +895,7 @@ class Activity:
         if stream_name not in self.values_streams:
             return 0
 
-        points = [x for x in self.values_streams[stream_name] if x]
+        points = [x for x in self._active_stream(stream_name) if x]
         if start_index is not None and end_index is not None:
             points = points[start_index:end_index]
 
