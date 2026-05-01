@@ -44,6 +44,9 @@ NORMALISED_VALUES = {
     "elevation": lambda x: float(x) if x else x,
     "time": lambda x: datetime.fromisoformat(x),
     "timestamp": lambda x: datetime.fromisoformat(x),
+    "segments": lambda xs: (values := [datetime.fromisoformat(x) if isinstance(x, str) else x for x in xs])[
+        : len(values) // 2 * 2
+    ],
 }
 
 LAP_FIELDS = [
@@ -68,10 +71,11 @@ JSON_EXPORTABLE_FIELDS = {
     "start_time": str,
     "virtual": None,
     "laps": None,
+    "segments": None,
 }
 
 # fields that must be loaded from the JSON document since they are not calculated
-JSON_LOADABLE_FIELDS = {"virtual": None, "activity_type": None}
+JSON_LOADABLE_FIELDS = {"virtual": None, "activity_type": None, "segments": NORMALISED_VALUES["segments"]}
 
 
 class Activity:
@@ -96,12 +100,14 @@ class Activity:
 
     bounding_box = []
     laps = []
+    segments = []
 
     def __init__(
         self,
         values_streams,
         *,
         laps=[],
+        segments=[],
         distance=0,
         elapsed_time=0,
         activity_type="",
@@ -111,6 +117,7 @@ class Activity:
     ):
         self.values_streams = values_streams
         self.laps = laps
+        self.segments = segments
         self.distance = distance
         self.elapsed_time = elapsed_time
         self.activity_type = activity_type
@@ -120,6 +127,8 @@ class Activity:
 
         if "time" in self.values_streams and self.values_streams["time"]:
             self.start_time = self.values_streams["time"][0]
+            if not self.segments:
+                self.segments = [self.values_streams["time"][0], self.values_streams["time"][-1]]
 
         # The idea here is that any missing values that can be derived from the GPX file should be calculated
         if not self.distance:
@@ -150,6 +159,7 @@ class Activity:
     def load_fit(cls, f, *, debug=False) -> Self:
         points = []
         laps = []
+        events = []
         activity_type = None
         virtual = False
 
@@ -172,6 +182,8 @@ class Activity:
                                 virtual = True
                     elif frame.name == "lap":
                         laps.append(frame)
+                    elif frame.name == "event":
+                        events.append(frame)
 
         # iterate all the points to find the available fields
         available_fields = []
@@ -220,7 +232,11 @@ class Activity:
                         lap_values[field.name] = val
             activity_laps.append(lap_values)
 
-        return Activity(streams, laps=activity_laps, activity_type=activity_type, virtual=virtual)
+        segments = NORMALISED_VALUES["segments"](
+            list(cls._extract_segments_from_fit_events(events, streams.get("time", [])))
+        )
+
+        return Activity(streams, laps=activity_laps, segments=segments, activity_type=activity_type, virtual=virtual)
 
     @classmethod
     def load_gpx(cls, f, *, debug=False) -> Self:
@@ -308,7 +324,7 @@ class Activity:
 
         for k, fn in JSON_EXPORTABLE_FIELDS.items():
             if not fn:
-                result[k] = getattr(self, k, None)
+                result[k] = self._serialize_segment_timestamps() if k == "segments" else getattr(self, k, None)
             else:
                 val = getattr(self, k, None)
                 if val:
@@ -776,6 +792,34 @@ class Activity:
         start = points[0]
         return [(x - start).total_seconds() for x in points]
 
+    def calc_pause_time(self, start_index=None, end_index=None):
+        # float, paused time in seconds
+        if not self.segments:
+            return 0
+
+        start_time = None
+        end_time = None
+        if "time" in self.values_streams and self.values_streams["time"]:
+            if start_index is not None and end_index is not None:
+                start_time = self.values_streams["time"][start_index]
+                end_time = self.values_streams["time"][end_index]
+            else:
+                start_time = self.values_streams["time"][0]
+                end_time = self.values_streams["time"][-1]
+
+        if start_time is None or end_time is None:
+            return 0
+
+        elapsed_seconds = (end_time - start_time).total_seconds()
+        active_seconds = 0
+        for segment_start, segment_end in zip(self.segments[::2], self.segments[1::2]):
+            overlap_start = max(segment_start, start_time)
+            overlap_end = min(segment_end, end_time)
+            if overlap_end > overlap_start:
+                active_seconds += (overlap_end - overlap_start).total_seconds()
+
+        return elapsed_seconds - active_seconds
+
     def _calc_stream_average(self, stream_name, start_index=None, end_index=None):
         if stream_name not in self.values_streams:
             return 0
@@ -815,6 +859,40 @@ class Activity:
             result.append(avg)
 
         return result
+
+    @staticmethod
+    def _extract_segments_from_fit_events(events, time_values):
+        if not time_values:
+            return []
+
+        activity_start = time_values[0]
+        activity_end = time_values[-1]
+        segment_start = None
+        segments = []
+
+        for event in events:
+            if event.get_value("event", fallback=None) != "timer":
+                continue
+
+            timestamp = event.get_value("timestamp", fallback=None)
+            event_type = event.get_value("event_type", fallback=None)
+
+            if not timestamp or not event_type:
+                continue
+
+            if event_type == "start":
+                segment_start = timestamp
+            elif event_type in {"stop", "stop_all", "stop_disable_all"} and segment_start and timestamp >= segment_start:
+                segments.extend([segment_start, timestamp])
+                segment_start = None
+
+        if segment_start is not None and activity_end >= segment_start:
+            segments.extend([segment_start, activity_end])
+
+        return segments or [activity_start, activity_end]
+
+    def _serialize_segment_timestamps(self):
+        return [segment.isoformat() if segment else None for segment in self.segments]
 
     """
     Utilities functions

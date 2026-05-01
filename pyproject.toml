@@ -3,7 +3,7 @@ name = "activity"
 version = "0.1"
 description = "Interacting with GPX/FIT activities"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 authors = [{name = "Brenton Cleeland"}]
 license = "Apache-2.0"
 classifiers = []

@@ -139,6 +139,21 @@ class ActivityTests(TestCase):
         reloaded = Activity.load_json(json.loads(outdoor_run.as_json()))
         self.assertFalse(reloaded.virtual)
 
+    def test_fit_pause_parsing(self):
+        ride = Activity.load("tests/testfiles/garmin-cycling.fit")
+        self.assertEqual(len(ride.segments), 4)
+        self.assertEqual(ride.segments[0].isoformat(), "2023-03-20T23:19:58+00:00")
+        self.assertEqual(ride.segments[1].isoformat(), "2023-03-20T23:46:53+00:00")
+        self.assertEqual(ride.segments[2].isoformat(), "2023-03-21T00:50:50+00:00")
+        self.assertEqual(ride.segments[3].isoformat(), "2023-03-21T01:18:17+00:00")
+        self.assertEqual(int(ride.calc_pause_time()), 3837)
+
+    def test_pause_export_as_json(self):
+        ride = Activity.load("tests/testfiles/garmin-cycling.fit")
+        reloaded = Activity.load_json(json.loads(ride.as_json()))
+        self.assertEqual(len(reloaded.segments), 4)
+        self.assertEqual(int(reloaded.calc_pause_time()), 3837)
+
     def test_auuki_file(self):
         auuki_ride = Activity.load("tests/testfiles/auuki.fit")
         self.assertEqual(auuki_ride.calc_elapsed_time(), 2043.0)
