@@ -170,6 +170,9 @@ class ActivityTests(TestCase):
         self.assertEqual(len(w.laps), 10)
         self.assertEqual(round(w.laps[1]["total_elapsed_time"], 0), 360)
 
+        run = Activity.load("tests/testfiles/applewatch-workout-repeat.fit")
+        self.assertEqual(len(run.laps), 22)
+
     def test_indoor_run(self):
         w = Activity.load("tests/testfiles/applewatch-treadmill-run.fit")
         self.assertEqual(int(w.calc_elapsed_time()), 2912)
