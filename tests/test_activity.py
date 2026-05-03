@@ -192,6 +192,17 @@ class ActivityTests(TestCase):
         self.assertEqual([int(x) if x else None for x in windowed_pace[:8]], [None, 533, 440, 389, 363, 349, 339, 297])
         self.assertEqual(len(run.values_streams["time"]), len(windowed_pace))
 
+    def test_grade_adjusted_pace_flat_activity(self):
+        run = Activity.load("tests/testfiles/applewatch-treadmill-run.fit")
+        self.assertEqual(int(run.calc_grade_adjusted_pace()), int(run.calc_moving_pace()))
+
+    def test_grade_adjusted_pace_hilly_activity(self):
+        run = Activity.load("tests/testfiles/cpt.fit")
+        self.assertNotEqual(int(run.calc_grade_adjusted_pace()), int(run.calc_moving_pace()))
+        self.assertEqual(format_mins_seconds(run.calc_grade_adjusted_pace()), "00:04:35")
+        self.assertEqual(len(run.values_streams["time"]), len(run.calc_grade_adjusted_pace_values()))
+        self.assertEqual(len(run.values_streams["time"]), len(run.calc_windowed_grade_adjusted_pace()))
+
 
 class BulkFileLoadingTestCase(TestCase):
 

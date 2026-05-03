@@ -7,6 +7,9 @@ from datetime import datetime
 import json
 from activity.vendor.fitdecode import fitdecode
 
+GRADE_ADJUSTED_PACE_BASE_COST = 3.6
+GRADE_ADJUSTED_PACE_GRADE_SMOOTHING_SECONDS = 3
+
 
 STREAM_NAMES = [
     "longitude",  # signed decimal degrees
@@ -49,9 +52,7 @@ NORMALISED_VALUES = {
     "distance": lambda x: float(x) if x else x,
     "time": lambda x: datetime.fromisoformat(x),
     "timestamp": lambda x: datetime.fromisoformat(x),
-    "segments": lambda xs: (values := [datetime.fromisoformat(x) if isinstance(x, str) else x for x in xs])[
-        : len(values) // 2 * 2
-    ],
+    "segments": lambda xs: (values := [datetime.fromisoformat(x) if isinstance(x, str) else x for x in xs])[: len(values) // 2 * 2],
 }
 
 LAP_FIELDS = [
@@ -237,9 +238,7 @@ class Activity:
                         lap_values[field.name] = val
             activity_laps.append(lap_values)
 
-        segments = NORMALISED_VALUES["segments"](
-            list(cls._extract_segments_from_fit_events(events, streams.get("time", [])))
-        )
+        segments = NORMALISED_VALUES["segments"](list(cls._extract_segments_from_fit_events(events, streams.get("time", []))))
 
         return Activity(streams, laps=activity_laps, segments=segments, activity_type=activity_type, virtual=virtual)
 
@@ -466,7 +465,10 @@ class Activity:
             return []
 
         values = self.values_streams[stream_name]
-        return [values[range_start:range_end] for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)]
+        return [
+            values[range_start:range_end]
+            for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)
+        ]
 
     def _iter_active_points(self, *stream_names, start_index=None, end_index=None):
         for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
@@ -555,7 +557,9 @@ class Activity:
         values = [0]
         if all([x in self.values_streams for x in ["latitude", "longitude"]]):
             for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
-                positions = list(zip(self.values_streams["latitude"][range_start:range_end], self.values_streams["longitude"][range_start:range_end]))
+                positions = list(
+                    zip(self.values_streams["latitude"][range_start:range_end], self.values_streams["longitude"][range_start:range_end])
+                )
                 if not positions:
                     continue
 
@@ -650,7 +654,12 @@ class Activity:
                 self.calc_pace_values(start_index=range_start, end_index=range_end)
                 for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)
             ]
-
+        elif stream == "gap":
+            time_ranges = self._active_stream_by_range("time", start_index=start_index, end_index=end_index)
+            values_ranges = [
+                self.calc_grade_adjusted_pace_values(start_index=range_start, end_index=range_end)
+                for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)
+            ]
         else:
             if stream not in self.values_streams:
                 return zone_time_seconds
@@ -746,6 +755,36 @@ class Activity:
 
         return t / d
 
+    def calc_grade_adjusted_pace(
+        self,
+        start_index=None,
+        end_index=None,
+        *,
+        grade_smoothing_seconds=GRADE_ADJUSTED_PACE_GRADE_SMOOTHING_SECONDS,
+    ):
+        # float, grade-adjusted pace in seconds per km
+        equivalent_flat_distance = 0
+        elapsed_seconds = 0
+
+        if not all([x in self.values_streams for x in ["longitude", "latitude", "time", "elevation"]]):
+            return self.calc_moving_pace(start_index=start_index, end_index=end_index)
+
+        for gap in self._iter_grade_adjusted_gap_data(
+            start_index=start_index,
+            end_index=end_index,
+            grade_smoothing_seconds=grade_smoothing_seconds,
+        ):
+            if gap is None:
+                continue
+            cost = self._running_energy_cost_for_grade(gap["smoothed_grade_ratio"])
+            equivalent_flat_distance += gap["distance_km"] * (cost / GRADE_ADJUSTED_PACE_BASE_COST)
+            elapsed_seconds += gap["elapsed_seconds"]
+
+        if not equivalent_flat_distance or not elapsed_seconds:
+            return 0
+
+        return elapsed_seconds / equivalent_flat_distance
+
     def calc_pace_values(self, start_index=None, end_index=None):
         # list[float], pace per point in seconds per km
         if not all([x in self.values_streams for x in ["longitude", "latitude", "time"]]):
@@ -775,6 +814,31 @@ class Activity:
                 prev = (lat, lon, clock)
 
         return pace_values
+
+    def calc_grade_adjusted_pace_values(
+        self,
+        start_index=None,
+        end_index=None,
+        *,
+        grade_smoothing_seconds=GRADE_ADJUSTED_PACE_GRADE_SMOOTHING_SECONDS,
+    ):
+        # list[float], grade-adjusted pace per point in seconds per km
+        if not all([x in self.values_streams for x in ["longitude", "latitude", "time", "elevation"]]):
+            return []
+
+        gap_values = []
+        for gap in self._iter_grade_adjusted_gap_data(
+            start_index=start_index,
+            end_index=end_index,
+            grade_smoothing_seconds=grade_smoothing_seconds,
+        ):
+            if gap is None:
+                gap_values.append(None)
+                continue
+            cost = self._running_energy_cost_for_grade(gap["smoothed_grade_ratio"])
+            gap_values.append((gap["elapsed_seconds"] / gap["distance_km"]) * (GRADE_ADJUSTED_PACE_BASE_COST / cost))
+
+        return gap_values
 
     def calc_grade_values(self, start_index=None, end_index=None):
         # list[float], grade per point as a percentage
@@ -814,6 +878,40 @@ class Activity:
             pace_values = self.calc_pace_values(start_index=range_start, end_index=range_end)
             if time_values:
                 result.extend(self._calc_stream_windowed_average(time_values, pace_values, window))
+
+        return result
+
+    def calc_windowed_grade_values(self, window=10, start_index=None, end_index=None):
+        # list[float], smoothed grade per point as a percentage
+        result = []
+        for smoothed_grades in self._smoothed_grade_values_by_range(
+            start_index=start_index,
+            end_index=end_index,
+            window=window,
+        ):
+            result.extend(smoothed_grades)
+
+        return result
+
+    def calc_windowed_grade_adjusted_pace(
+        self,
+        window=5,
+        start_index=None,
+        end_index=None,
+        *,
+        grade_smoothing_seconds=GRADE_ADJUSTED_PACE_GRADE_SMOOTHING_SECONDS,
+    ):
+        # list[float], windowed grade-adjusted pace in seconds per km
+        result = []
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            time_values = self.values_streams["time"][range_start:range_end]
+            gap_values = self.calc_grade_adjusted_pace_values(
+                start_index=range_start,
+                end_index=range_end,
+                grade_smoothing_seconds=grade_smoothing_seconds,
+            )
+            if time_values:
+                result.extend(self._calc_stream_windowed_average(time_values, gap_values, window))
 
         return result
 
@@ -930,6 +1028,101 @@ class Activity:
             result.append(avg)
 
         return result
+
+    def _smoothed_grade_values_by_range(self, start_index=None, end_index=None, window=GRADE_ADJUSTED_PACE_GRADE_SMOOTHING_SECONDS):
+        smoothed_grades = []
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            time_values = self.values_streams["time"][range_start:range_end]
+            grade_values = self.calc_grade_values(start_index=range_start, end_index=range_end)
+            smoothed_grades.append(self._calc_stream_windowed_average(time_values, grade_values, window) if time_values else [])
+
+        return smoothed_grades
+
+    @staticmethod
+    def _running_energy_cost_for_grade(grade):
+        # Minetti-style running cost model, with grade expressed as rise/run.
+        # Reference summaries of the polynomial used here:
+        # https://taktyk.pl/sport/trail-running/gap-calculation
+        # https://hashiri.ai/knowledge/grade-adjusted-pace
+        min_grade = -0.45
+        max_grade = 0.45
+        grade_5_coefficient = 155.4
+        grade_4_coefficient = -30.4
+        grade_3_coefficient = -43.3
+        grade_2_coefficient = 46.3
+        grade_1_coefficient = 19.5
+
+        grade = max(min_grade, min(max_grade, grade))
+        return (
+            grade_5_coefficient * grade**5
+            + grade_4_coefficient * grade**4
+            + grade_3_coefficient * grade**3
+            + grade_2_coefficient * grade**2
+            + grade_1_coefficient * grade
+            + GRADE_ADJUSTED_PACE_BASE_COST
+        )
+
+    def _iter_grade_adjusted_gap_data(
+        self,
+        *,
+        start_index=None,
+        end_index=None,
+        grade_smoothing_seconds=GRADE_ADJUSTED_PACE_GRADE_SMOOTHING_SECONDS,
+    ):
+        smoothed_grade_ranges = self._smoothed_grade_values_by_range(
+            start_index=start_index,
+            end_index=end_index,
+            window=grade_smoothing_seconds,
+        )
+
+        for (range_start, range_end), smoothed_grades in zip(
+            self._active_index_ranges(start_index=start_index, end_index=end_index),
+            smoothed_grade_ranges,
+        ):
+            points = list(
+                zip(
+                    self.values_streams["latitude"][range_start:range_end],
+                    self.values_streams["longitude"][range_start:range_end],
+                    self.values_streams["time"][range_start:range_end],
+                    self.values_streams["elevation"][range_start:range_end],
+                )
+            )
+
+            prev = None
+            for idx, (lat, lon, clock, elev) in enumerate(points):
+                if prev is None:
+                    prev = (lat, lon, clock, elev)
+                    yield None
+                    continue
+
+                prev_lat, prev_lon, prev_time, prev_elev = prev
+                prev = (lat, lon, clock, elev)
+
+                if None in (prev_lat, prev_lon, prev_time, prev_elev, lat, lon, clock, elev):
+                    yield None
+                    continue
+
+                distance_km = haversine((prev_lat, prev_lon), (lat, lon))
+                elapsed_seconds = (clock - prev_time).total_seconds()
+                if not distance_km or not elapsed_seconds:
+                    yield {
+                        "distance_km": distance_km,
+                        "elapsed_seconds": elapsed_seconds,
+                        "raw_grade_ratio": 0,
+                        "smoothed_grade_ratio": 0,
+                    }
+                    continue
+
+                raw_grade_ratio = (elev - prev_elev) / (distance_km * 1000)
+                smoothed_grade = smoothed_grades[idx]
+                smoothed_grade_ratio = raw_grade_ratio if smoothed_grade is None else smoothed_grade / 100
+
+                yield {
+                    "distance_km": distance_km,
+                    "elapsed_seconds": elapsed_seconds,
+                    "raw_grade_ratio": raw_grade_ratio,
+                    "smoothed_grade_ratio": smoothed_grade_ratio,
+                }
 
     @staticmethod
     def _extract_segments_from_fit_events(events, time_values):
