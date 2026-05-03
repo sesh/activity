@@ -1,12 +1,6 @@
 # activity
 
-[![Tests](https://github.com/sesh/activity/actions/workflows/test.yml/badge.svg)](https://github.com/sesh/activity/actions/workflows/test.yml)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/sesh/activity/blob/main/LICENSE)
-
-
-## Usage
-
-Usage instructions go here.
+`activity` is a Python module for working with .fit and .gpx files, particularly ones that contain running workouts.
 
 
 ## Development
@@ -14,5 +8,5 @@ Usage instructions go here.
 Running tests:
 
 ```
-python3 -m unittest discover
+uv run python -m unittest discover
 ```
