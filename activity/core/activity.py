@@ -870,6 +870,40 @@ class Activity:
 
         return grade_values
 
+    def calc_fastest_x(self, distance, start_index=None, end_index=None):
+        # int, seconds for fastest segment of the given distance in km
+        if not all([x in self.values_streams for x in ["latitude", "longitude", "time"]]):
+            return 0
+
+        if distance is None or distance <= 0:
+            return 0
+
+        distance_values = self.calc_distance_values(start_index=start_index, end_index=end_index)
+        time_values = self._active_stream("time", start_index=start_index, end_index=end_index)
+
+        if not distance_values or not time_values:
+            return 0
+
+        fastest = None
+        for idx, (start_distance, start_time) in enumerate(zip(distance_values, time_values)):
+            if start_time is None:
+                continue
+
+            target_distance = start_distance + distance
+            end_idx = bisect_left(distance_values, target_distance, lo=idx + 1)
+            if end_idx >= len(distance_values):
+                continue
+
+            end_time = time_values[end_idx]
+            if end_time is None:
+                continue
+
+            elapsed_seconds = (end_time - start_time).total_seconds()
+            if fastest is None or elapsed_seconds < fastest:
+                fastest = elapsed_seconds
+
+        return fastest if fastest is not None else 0
+
     def calc_windowed_pace(self, window=5, start_index=None, end_index=None):
         # list[float], windowed pace in seconds per km
         result = []

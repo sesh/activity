@@ -4,10 +4,42 @@ from datetime import datetime
 import inspect
 import sys
 import time
+import re
+
+
+def tabler(headers, data):
+    def _trailing_padding(s, width):
+        no_ansi_len = len(re.sub("\x1b\\[(K|.*?m)", "", s))
+        return s + " " * (width - no_ansi_len)
+
+    data = [headers] + data
+    col_widths = [max([len(d[i]) for d in data]) for i in range(len(data[0]))]
+
+    if sum(col_widths) < 180:
+        col_widths = [x + 2 for x in col_widths]
+
+    rows = ["|" + "|".join(f" {_trailing_padding(val, width)}" for width, val in zip(col_widths, row)) + "|" for row in data]
+
+    print("-" * len(rows[0]))
+    print(rows[0])
+    print("-" * len(rows[0]))
+    print(*rows[1:], sep="\n")
+    print("-" * len(rows[0]))
+
+
+def parse_args(args):
+    result = {
+        a.split("=")[0]: (int(a.split("=")[1]) if "=" in a and a.split("=")[1].isnumeric() else a.split("=")[1] if "=" in a else True)
+        for a in args
+        if "--" in a
+    }
+    result["[]"] = [a for a in args if not a.startswith("--")]
+    return result
 
 
 def _list_as_mmss(l):
     return [format_mins_seconds_lstrip(x) for x in l]
+
 
 def _list_as_percentage(l):
     total = sum(l)
@@ -91,9 +123,7 @@ def activity_kitchen_sink(a: Activity, fn):
         if key == "values_streams":
             for stream_name in sorted(value.keys()):
                 stream_value = value[stream_name]
-                parts.append(
-                    f"values_streams.{stream_name}(len={len(stream_value)})={_format_kitchen_sink_value(stream_value)}"
-                )
+                parts.append(f"values_streams.{stream_name}(len={len(stream_value)})={_format_kitchen_sink_value(stream_value)}")
             continue
 
         if isinstance(value, (list, tuple)):
@@ -109,12 +139,10 @@ def activity_kitchen_sink(a: Activity, fn):
     for label, (zones, stream_name) in time_in_zone_configs.items():
         values = a.calc_time_in_zone(zones, stream_name)
         parts.append(f"time_in_zone_{label}(len={len(values)})={_format_kitchen_sink_value(_list_as_mmss(values))}")
-        parts.append(
-            f"time_in_zone_{label}_percentage(len={len(values)})={_format_kitchen_sink_value(_list_as_percentage(values))}"
-        )
+        parts.append(f"time_in_zone_{label}_percentage(len={len(values)})={_format_kitchen_sink_value(_list_as_percentage(values))}")
 
     for method_name in sorted(name for name in dir(a) if not name.startswith("_")):
-        if method_name.startswith('as_'):
+        if method_name.startswith("as_"):
             continue
 
         method = getattr(a, method_name)
@@ -139,16 +167,33 @@ def activity_kitchen_sink(a: Activity, fn):
 
 
 if __name__ == "__main__":
-    one_line = False
-    for fn in sys.argv[1:]:
+    args = parse_args(sys.argv[1:])
+    cmd = args["[]"][0]
+    fns = args["[]"][1:]
+
+    if cmd not in ["oneline", "kitchen_sink", "fastest"]:
+        print("Please provide a single command, followed by one or more files")
+        sys.exit(1)
+
+    for fn in fns:
         started_at = time.perf_counter()
         a = Activity.load(fn)
 
         if not a:
             print(f"[ERROR] {fn}")
             continue
-        
-        if one_line:
+
+        if cmd == "oneline":
             print(activity_one_liner(a, fn))
-        else:
-            print(activity_kitchen_sink(a, fn))    
+        elif cmd == "kitchen_sink":
+            print(activity_kitchen_sink(a, fn))
+        elif cmd == "fastest":
+            print(fn)
+
+            data = [
+                ["400m", format_mins_seconds_lstrip(a.calc_fastest_x(0.4))],
+                ["1k", format_mins_seconds_lstrip(a.calc_fastest_x(1.0))],
+                ["5k", format_mins_seconds_lstrip(a.calc_fastest_x(5.0))],
+                ["10k", format_mins_seconds_lstrip(a.calc_fastest_x(10.0))],
+            ]
+            tabler(["Distance", "Time"], data)

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 from unittest import TestCase
 from activity import Activity
 from activity.utils import format_mins_seconds
@@ -26,6 +27,27 @@ class ActivityTests(TestCase):
     def test_pace_calculations(self):
         a = Activity.load("tests/testfiles/clearspot.gpx")
         self.assertEqual(format_mins_seconds(a.calc_pace()), "00:07:33")
+
+    def test_fastest_x_calculation(self):
+        points = [
+            (0.0, 0.0),
+            (0.0, 0.009),
+            (0.0, 0.018),
+            (0.0, 0.027),
+            (0.0, 0.036),
+        ]
+        times = [datetime(2026, 1, 1, 0, 0, 0) + timedelta(seconds=offset) for offset in [0, 60, 90, 180, 240]]
+
+        a = Activity(
+            {
+                "latitude": [lat for lat, _ in points],
+                "longitude": [lon for _, lon in points],
+                "time": times,
+            }
+        )
+
+        self.assertEqual(a.calc_fastest_x(1.0), 30.0)
+        self.assertEqual(a.calc_fastest_x(2.0), 90.0)
 
     def test_moving_time_calculations_with_stationary_time(self):
         # GPX file with periods of stationary time
