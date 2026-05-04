@@ -47,9 +47,7 @@ rst_epilog = """
 
     <br />
 
-""".format(
-    title=_ABOUT["__fancy_title__"], version=_ABOUT["__version__"]
-)
+""".format(title=_ABOUT["__fancy_title__"], version=_ABOUT["__version__"])
 
 primary_domain = "py"
 default_role = "any"

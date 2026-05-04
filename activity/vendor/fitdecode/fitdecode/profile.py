@@ -13,7 +13,6 @@ from .types import (
     BASE_TYPES,
 )
 
-
 MESG_NUM_FILE_ID = 0  # message "file_id"
 MESG_NUM_DEVELOPER_DATA_ID = 207  # message "developer_data_id"
 MESG_NUM_FIELD_DESCRIPTION = 206  # message "field_description"

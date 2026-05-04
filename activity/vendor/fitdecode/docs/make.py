@@ -14,7 +14,6 @@ import threading
 import types
 import webbrowser
 
-
 # Sphinx' command scripts, as defined by sphinx' own setup.py
 #
 # Unfortunately we cannot just go for the pythonic way by importing Sphinx' main
