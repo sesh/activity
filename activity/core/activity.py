@@ -961,6 +961,34 @@ class Activity:
         # float, average heart rate in bpm
         return self._calc_stream_average("heart_rate", start_index, end_index)
 
+    def calc_max_heart_rate(self, start_index=None, end_index=None):
+        values = self.calc_windowed_heart_rate(window=15, start_index=start_index, end_index=end_index)
+        values = [v for v in values if v]
+        if not values:
+            return 0
+        return max(values)
+
+    def calc_heart_rate_recovery(self, recovery_seconds=120, start_index=None, end_index=None):
+        hr_values = self.calc_windowed_heart_rate(window=15, start_index=start_index, end_index=end_index)
+        clock_values = self.calc_clock_values(start_index=start_index, end_index=end_index)
+        if not hr_values or not clock_values:
+            return 0
+
+        max_drop = 0
+        for i, hr in enumerate(hr_values):
+            if not hr:
+                continue
+            end_time = clock_values[i] + recovery_seconds
+            j = bisect_left(clock_values, end_time, lo=i)
+            if j >= len(clock_values):
+                j = len(clock_values) - 1
+            if hr_values[j] and clock_values[j] >= clock_values[i]:
+                drop = hr - hr_values[j]
+                if drop > max_drop:
+                    max_drop = drop
+
+        return max_drop
+
     def calc_average_power(self, start_index=None, end_index=None):
         # float, average power in watts
         return self._calc_stream_average("power", start_index, end_index)
