@@ -494,7 +494,7 @@ class Activity:
     calc_* functions should check that they have the streams needed for the calculations first, and return
     the defined default value if there is insufficient data.
 
-    All calc_* functions should take a start_index and end_index, if they are set, then the value should be 
+    All calc_* functions should take a start_index and end_index, if they are set, then the value should be
     calculated for that range only.
     """
 
@@ -642,22 +642,29 @@ class Activity:
 
     def calc_time_in_zone(self, zones: list[int], stream: str, start_index=None, end_index=None):
         # list[float], time per zone in seconds
-        """
-        Provide zones as the top of the range for the zone with a high last value, i.e. for HR: [128, 146, 166, 180, 999]
-        """
         zone_time_seconds = [0 for _ in range(len(zones))]
 
         # special case for this calculated stream
         if stream == "pace":
             time_ranges = self._active_stream_by_range("time", start_index=start_index, end_index=end_index)
             values_ranges = [
-                self.calc_pace_values(start_index=range_start, end_index=range_end)
+                self.calc_windowed_pace(window=15, start_index=range_start, end_index=range_end)
                 for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)
             ]
         elif stream == "gap":
             time_ranges = self._active_stream_by_range("time", start_index=start_index, end_index=end_index)
             values_ranges = [
-                self.calc_grade_adjusted_pace_values(start_index=range_start, end_index=range_end)
+                self.calc_windowed_grade_adjusted_pace(window=15, start_index=range_start, end_index=range_end)
+                for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)
+            ]
+        elif stream in ("heart_rate", "power"):
+            if stream not in self.values_streams:
+                return zone_time_seconds
+
+            windowed_fn = self.calc_windowed_heart_rate if stream == "heart_rate" else self.calc_windowed_power
+            time_ranges = self._active_stream_by_range("time", start_index=start_index, end_index=end_index)
+            values_ranges = [
+                windowed_fn(window=15, start_index=range_start, end_index=range_end)
                 for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index)
             ]
         else:
@@ -670,6 +677,7 @@ class Activity:
         for times, values in zip(time_ranges, values_ranges):
             prev_dt = None
             prev_val = None
+
             for dt, val in zip(times, values):
                 elapsed = (dt - prev_dt).total_seconds() if prev_dt else 0
 
@@ -807,7 +815,7 @@ class Activity:
                 if prev:
                     t = (clock - prev[2]).total_seconds()
                     d = haversine((prev[0], prev[1]), (lat, lon))
-                    pace_values.append(0 if not t or not d else t / d)
+                    pace_values.append(None if not t or not d else t / d)
                 else:
                     pace_values.append(None)
 
@@ -956,6 +964,17 @@ class Activity:
     def calc_average_power(self, start_index=None, end_index=None):
         # float, average power in watts
         return self._calc_stream_average("power", start_index, end_index)
+
+    def calc_windowed_heart_rate(self, window=15, start_index=None, end_index=None):
+        # list[float], windowed heart rate in bpm
+        result = []
+        for range_start, range_end in self._active_index_ranges(start_index=start_index, end_index=end_index):
+            time_values = self.values_streams["time"][range_start:range_end]
+            hr_values = self.values_streams["heart_rate"][range_start:range_end]
+            if time_values:
+                result.extend(self._calc_stream_windowed_average(time_values, hr_values, window))
+
+        return result
 
     def calc_windowed_power(self, window=30, start_index=None, end_index=None):
         # list[float], windowed power in watts

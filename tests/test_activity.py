@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timedelta
 from unittest import TestCase
 from activity import Activity
-from activity.utils import format_mins_seconds
+from activity.utils import format_mins_seconds, format_mins_seconds_lstrip
 from pathlib import Path
 
 
@@ -224,6 +224,14 @@ class ActivityTests(TestCase):
         self.assertEqual(format_mins_seconds(run.calc_grade_adjusted_pace()), "00:04:35")
         self.assertEqual(len(run.values_streams["time"]), len(run.calc_grade_adjusted_pace_values()))
         self.assertEqual(len(run.values_streams["time"]), len(run.calc_windowed_grade_adjusted_pace()))
+
+    def test_time_in_zone(self):
+        run = Activity.load("tests/testfiles/interval-workout.fit")
+
+        print([format_mins_seconds_lstrip(x) for x in run.calc_time_in_zone([145, 153, 162, 171, 176, 181, 190], "heart_rate")])
+
+        print([format_mins_seconds_lstrip(x) for x in run.calc_time_in_zone([323,285,265,250,242,224,0], "pace")])
+
 
 
 class BulkFileLoadingTestCase(TestCase):
