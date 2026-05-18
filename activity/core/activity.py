@@ -95,8 +95,16 @@ JSON_EXPORTABLE_FIELDS = {
     "segments": None,
 }
 
+def _parse_lap_timestamps(laps):
+    for lap in laps:
+        for k in ("start_time", "timestamp"):
+            if isinstance(lap.get(k), str):
+                lap[k] = datetime.fromisoformat(lap[k])
+    return laps
+
+
 # fields that must be loaded from the JSON document since they are not calculated
-JSON_LOADABLE_FIELDS = {"virtual": None, "activity_type": None, "segments": NORMALISED_VALUES["segments"]}
+JSON_LOADABLE_FIELDS = {"virtual": None, "activity_type": None, "laps": _parse_lap_timestamps, "segments": NORMALISED_VALUES["segments"]}
 
 
 class Activity:
