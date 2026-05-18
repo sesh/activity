@@ -10,6 +10,21 @@ from activity.vendor.fitdecode import fitdecode
 GRADE_ADJUSTED_PACE_BASE_COST = 3.6
 GRADE_ADJUSTED_PACE_GRADE_SMOOTHING_SECONDS = 3
 
+BEST_EFFORT_DISTANCES = [
+    (400, "400m"),
+    (800, "800m"),
+    (1000, "1km"),
+    (1609, "Mile"),
+    (3000, "3km"),
+    (5000, "5km"),
+    (10000, "10km"),
+    (21100, "Half Marathon"),
+    (42200, "Marathon"),
+    (50000, "50km"),
+    (80000, "80km"),
+    (100000, "100km"),
+]
+
 
 STREAM_NAMES = [
     "longitude",  # signed decimal degrees
@@ -911,6 +926,150 @@ class Activity:
                 fastest = elapsed_seconds
 
         return fastest if fastest is not None else 0
+
+    def calc_best_efforts(self, start_index=None, end_index=None) -> dict:
+        if "distance" not in self.values_streams or "time" not in self.values_streams:
+            return {}
+
+        raw_dists = self.values_streams["distance"]
+        raw_times = self.values_streams["time"]
+
+        si = start_index or 0
+        ei = end_index or len(raw_dists)
+        raw_dists = raw_dists[si:ei]
+        raw_times = raw_times[si:ei]
+
+        filtered = [(d, t) for d, t in zip(raw_dists, raw_times) if d is not None and t is not None]
+        if not filtered:
+            return {}
+
+        dists = [d for d, _ in filtered]
+        times = [t for _, t in filtered]
+
+        total_distance = dists[-1] - dists[0]
+        results = {}
+
+        for target_meters, label in BEST_EFFORT_DISTANCES:
+            if target_meters > total_distance:
+                continue
+
+            best_time = None
+            for i in range(len(dists)):
+                target_dist = dists[i] + target_meters
+                j = bisect_left(dists, target_dist, lo=i + 1)
+                if j >= len(dists):
+                    break
+
+                elapsed = (times[j] - times[i]).total_seconds()
+                if best_time is None or elapsed < best_time:
+                    best_time = elapsed
+
+            if best_time is not None:
+                pace = best_time / (target_meters / 1000)
+                results[label] = {"time": int(best_time), "pace": int(pace)}
+
+        return results
+
+    def calc_lap_details(self, start_index=None, end_index=None) -> list[dict]:
+        if len(self.laps) < 2:
+            return []
+
+        if not all(x in self.values_streams for x in ["distance", "time", "elevation"]):
+            return []
+
+        dists = self.values_streams["distance"]
+        times = self.values_streams["time"]
+        elevs = self.values_streams["elevation"]
+        hr_values = self.values_streams.get("heart_rate")
+        power_values = self.values_streams.get("power")
+
+        details = []
+        last_ei = 0
+
+        for lap in self.laps:
+            start_time = lap.get("start_time")
+            end_time = lap.get("timestamp")
+            if not start_time or not end_time:
+                continue
+
+            si = bisect_left(times, start_time)
+            ei = min(bisect_left(times, end_time), len(times) - 1)
+
+            start_dist_m = dists[si] if dists[si] is not None else 0
+            end_dist_m = dists[ei] if dists[ei] is not None else 0
+            distance_km = (end_dist_m - start_dist_m) / 1000
+
+            elapsed = int(lap.get("total_elapsed_time", 0))
+            moving_time = self.calc_moving_time(start_index=si, end_index=ei)
+
+            start_elev = elevs[si] if si < len(elevs) and elevs[si] is not None else None
+            end_elev = elevs[ei] if ei < len(elevs) and elevs[ei] is not None else None
+
+            entry = {
+                "start_km": round(start_dist_m / 1000, 3),
+                "end_km": round(end_dist_m / 1000, 3),
+                "distance": round(distance_km, 3),
+                "elapsed": elapsed,
+                "pace": int(elapsed / distance_km) if distance_km > 0 else 0,
+                "moving_pace": int(moving_time / distance_km) if distance_km > 0 else 0,
+                "elev": int(end_elev - start_elev) if start_elev is not None and end_elev is not None else 0,
+            }
+
+            if hr_values:
+                hrs = [v for v in hr_values[si:ei] if v]
+                if hrs:
+                    entry["avg_heart_rate"] = round(sum(hrs) / len(hrs))
+
+            if power_values:
+                pows = [v for v in power_values[si:ei] if v]
+                if pows:
+                    entry["avg_power"] = round(sum(pows) / len(pows))
+
+            details.append(entry)
+            last_ei = ei
+
+        if details:
+            total_dist_m = dists[-1] if dists[-1] is not None else 0
+            last_end_m = details[-1]["end_km"] * 1000
+            remainder_m = total_dist_m - last_end_m
+
+            if remainder_m > 50:
+                si = last_ei
+                ei = len(times) - 1
+
+                start_dist_m = dists[si] if dists[si] is not None else 0
+                end_dist_m = dists[ei] if dists[ei] is not None else 0
+                distance_km = (end_dist_m - start_dist_m) / 1000
+
+                elapsed_seconds = (times[ei] - times[si]).total_seconds()
+                moving_time = self.calc_moving_time(start_index=si, end_index=ei)
+
+                start_elev = elevs[si] if si < len(elevs) and elevs[si] is not None else None
+                end_elev = elevs[ei] if ei < len(elevs) and elevs[ei] is not None else None
+
+                entry = {
+                    "start_km": round(start_dist_m / 1000, 3),
+                    "end_km": round(end_dist_m / 1000, 3),
+                    "distance": round(distance_km, 3),
+                    "elapsed": int(elapsed_seconds),
+                    "pace": int(elapsed_seconds / distance_km) if distance_km > 0 else 0,
+                    "moving_pace": int(moving_time / distance_km) if distance_km > 0 else 0,
+                    "elev": int(end_elev - start_elev) if start_elev is not None and end_elev is not None else 0,
+                }
+
+                if hr_values:
+                    hrs = [v for v in hr_values[si:ei] if v]
+                    if hrs:
+                        entry["avg_heart_rate"] = round(sum(hrs) / len(hrs))
+
+                if power_values:
+                    pows = [v for v in power_values[si:ei] if v]
+                    if pows:
+                        entry["avg_power"] = round(sum(pows) / len(pows))
+
+                details.append(entry)
+
+        return details
 
     def calc_windowed_pace(self, window=5, start_index=None, end_index=None):
         # list[float], windowed pace in seconds per km
